@@ -10,13 +10,33 @@ import numpy as np
 import tyro
 from lafan1 import extract, utils  # type: ignore[import-not-found]
 
+# Use absolute imports if possible or relative if running as module
+import sys
+import os
+from pathlib import Path
 
-def extract_global_positions(bvh_file_path):
+# Add the package root to path to import config_types
+# This script is in src/holosoma_retargeting/holosoma_retargeting/data_utils/
+# Package root is src/holosoma_retargeting/
+package_root = Path(__file__).resolve().parents[2]
+if str(package_root) not in sys.path:
+    sys.path.insert(0, str(package_root))
+
+try:
+    from holosoma_retargeting.config_types.data_type import DEMO_JOINTS_REGISTRY
+except ImportError:
+    # Fallback if not installed or path not set correctly
+    DEMO_JOINTS_REGISTRY = {}
+
+
+def extract_global_positions(bvh_file_path, target_joints=None):
     """
     Extract global positions from a BVH file.
 
     Args:
         bvh_file_path (str): Path to the BVH file
+        target_joints (list, optional): List of joint names to extract in specific order.
+                                       If None, extracts all joints from BVH.
 
     Returns:
         dict: Dictionary containing:
@@ -31,12 +51,38 @@ def extract_global_positions(bvh_file_path):
 
     # Compute global positions using Forward Kinematics
     global_quats, global_positions = utils.quat_fk(anim.quats, anim.pos, anim.parents)
+    
+    positions = global_positions / 100 # cm to m
+    joint_names = list(anim.bones)
+    
+    if target_joints:
+        # Extract only target joints in the specified order
+        extracted_positions = []
+        for joint in target_joints:
+            if joint in joint_names:
+                idx = joint_names.index(joint)
+                extracted_positions.append(positions[:, idx])
+            elif joint == "LeftFootMod" and "LeftFoot" in joint_names:
+                # Special case for Nokov foot mod
+                idx = joint_names.index("LeftFoot")
+                extracted_positions.append(positions[:, idx])
+            elif joint == "RightFootMod" and "RightFoot" in joint_names:
+                # Special case for Nokov foot mod
+                idx = joint_names.index("RightFoot")
+                extracted_positions.append(positions[:, idx])
+            else:
+                print(f"Warning: Joint {joint} not found in BVH. Using zeros.")
+                extracted_positions.append(np.zeros((positions.shape[0], 3)))
+        
+        positions = np.stack(extracted_positions, axis=1)
+        joint_names = target_joints
+
     return {
-        "positions": global_positions / 100,
-        "joint_names": anim.bones,
-        "parents": anim.parents,
-        "num_frames": global_positions.shape[0],
-        "num_joints": global_positions.shape[1],
+        "positions": positions,
+        "joint_names": joint_names,
+        "parents": anim.parents, # Note: parents indices will be wrong if joints are reordered
+        "num_frames": positions.shape[0],
+        "num_joints": positions.shape[1],
     }
 
 
@@ -58,6 +104,7 @@ class Config:
 
     input_dir: str = "./lafan1/lafan"
     output_dir: str = "../demo_data/lafan"
+    data_format: str = "lafan"  #? 这里的data_format参数的作用是？ Data format from DEMO_JOINTS_REGISTRY
 
 
 def main(cfg: Config):
@@ -70,8 +117,14 @@ def main(cfg: Config):
     # Check if input directory exists
     if not input_dir.exists():
         print(f"Error: Input directory {cfg.input_dir} not found!")
-        print("Please run the evaluation script first to generate BVH files.")
         return
+
+    # Get target joints if data_format is specified
+    target_joints = DEMO_JOINTS_REGISTRY.get(cfg.data_format)
+    if target_joints:
+        print(f"Using target joints from format: {cfg.data_format}")
+    else:
+        print(f"Warning: Format {cfg.data_format} not found in registry. Extracting all joints.")
 
     # Get list of BVH files
     bvh_files = [f.name for f in input_dir.iterdir() if f.is_file() and f.suffix == ".bvh"]
@@ -79,21 +132,21 @@ def main(cfg: Config):
     output_dir.mkdir(parents=True, exist_ok=True)
 
     # Process each BVH file
-    for bvh_file in bvh_files:  # Process first 3 files to avoid memory issues
+    for bvh_file in bvh_files:
         print(f"\nProcessing: {bvh_file}")
 
         bvh_path = input_dir / bvh_file
 
         # Extract global positions
-        result = extract_global_positions(str(bvh_path))
+        result = extract_global_positions(str(bvh_path), target_joints=target_joints)
 
         print(f"  Frames: {result['num_frames']}")
         print(f"  Joints: {result['num_joints']}")
-        print(f"  Joint names: {result['joint_names']}")
 
         # Save to .npy file
         output_npy = output_dir / f"{bvh_file[:-4]}.npy"
         np.save(str(output_npy), result["positions"])
+        print(f"  Saved to: {output_npy}")
 
 
 if __name__ == "__main__":

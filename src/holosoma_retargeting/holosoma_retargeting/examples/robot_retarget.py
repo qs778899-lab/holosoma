@@ -223,6 +223,32 @@ def load_motion_data(
             human_joints = np.load(str(npy_path))
             human_joints = transform_y_up_to_z_up(human_joints)
             smpl_scale = motion_data_config.default_scale_factor or 0.01
+            
+        elif data_format == "nokov":
+            npy_path = data_path / f"{task_name}.npy"
+            if not npy_path.exists():
+                raise FileNotFoundError(f"NOKOV data file not found: {npy_path}")
+
+            human_joints = np.load(str(npy_path))
+            
+            # Use GMR-style transformation for Nokov: [x, y, z] -> [x, -z, y]
+            # This handles the forward direction correctly for Nokov BVH
+            rot_matrix = np.array([[1, 0, 0], [0, 0, -1], [0, 1, 0]])
+            human_joints = (rot_matrix @ human_joints.reshape(-1, 3).T).T.reshape(human_joints.shape)
+            
+            # Calculate scale based on human height if not provided
+            if motion_data_config.default_scale_factor:
+                smpl_scale = motion_data_config.default_scale_factor
+            else:
+                # Estimate height from Hips to Head
+                hips_idx = constants.DEMO_JOINTS.index("Hips")
+                head_idx = constants.DEMO_JOINTS.index("Head")
+                human_height = np.mean(np.linalg.norm(human_joints[:, head_idx] - human_joints[:, hips_idx], axis=-1))
+                # Add some margin for legs (roughly 2x hips-to-head)
+                total_height = human_height * 2.0 
+                smpl_scale = constants.ROBOT_HEIGHT / total_height
+                logger.info(f"Estimated human height: {total_height:.2f}m, scale: {smpl_scale:.4f}")
+
         elif data_format == "smplh":  # smplh
             pt_path = data_path / f"{task_name}.pt"
             if not pt_path.exists():
@@ -409,6 +435,15 @@ def _compute_q_init_base(
             q_init_base = np.concatenate(
                 [human_joints[0, spine_joint_idx, :3], human_quat_init, np.zeros(constants.ROBOT_DOF)]
             )
+
+        elif data_format == "nokov":
+            hips_joint_idx = constants.DEMO_JOINTS.index("Hips")
+            human_quat_init = estimate_human_orientation(human_joints, constants.DEMO_JOINTS)
+            # MuJoCo order: pos first, then quat
+            q_init_base = np.concatenate(
+                [human_joints[0, hips_joint_idx, :3], human_quat_init, np.zeros(constants.ROBOT_DOF)]
+            )
+
         else:  # smplh
             _, human_quat_init = transform_from_human_to_world(
                 human_joints[0, 0, :], object_poses[0], np.array([0.0, 0.0, 0.0])

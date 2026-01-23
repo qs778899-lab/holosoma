@@ -229,6 +229,34 @@ SIK_BVH_JOINTS = [
     "LeftHandPinky3",
 ]
 
+#! NOKOV_DEMO_JOINTS 定义了从 Nokov BVH 中提取的规范化关节集。
+# 这样做可以确保生成的 .npy 文件具有固定的关节顺序，并忽略 Nokov 中多余的手指或末端节点。
+NOKOV_DEMO_JOINTS = [
+    "Hips",
+    "RightUpLeg",
+    "RightLeg",
+    "RightFoot",
+    "LeftUpLeg",
+    "LeftLeg",
+    "LeftFoot",
+    "Spine",
+    "Spine1",
+    "Spine2",
+    "Neck",
+    "Neck1",
+    "Head",
+    "RightShoulder",
+    "RightArm",
+    "RightForeArm",
+    "RightHand",
+    "LeftShoulder",
+    "LeftArm",
+    "LeftForeArm",
+    "LeftHand",
+    "LeftFootMod",
+    "RightFootMod",
+]
+
 # Joint mappings - organized by (data_format, robot_type)
 JOINTS_MAPPINGS = {
     ("sik_bvh", "g1"): {
@@ -245,23 +273,6 @@ JOINTS_MAPPINGS = {
         "RightFoot": "right_ankle_intermediate_1_link",
         "LeftHand": "left_rubber_hand_link",
         "RightHand": "right_rubber_hand_link",
-    },
-
-
-    ("sik_bvh", "t1"): {
-        "Spine1": "Trunk",
-        "LeftUpLeg": "Hip_Pitch_Left",
-        "RightUpLeg": "Hip_Pitch_Right",
-        "LeftLeg": "Shank_Left",
-        "RightLeg": "Shank_Right",
-        "LeftArm": "AL1",
-        "RightArm": "AR1",
-        "LeftForeArm": "left_hand_link",
-        "RightForeArm": "right_hand_link",
-        "LeftFoot": "Ankle_Cross_Left",
-        "RightFoot": "Ankle_Cross_Right",
-        "LeftHand": "left_hand_sphere_link",
-        "RightHand": "right_hand_sphere_link",
     },
 
 
@@ -384,11 +395,30 @@ JOINTS_MAPPINGS = {
         "LeftFoot": "Ankle_Cross_Left",
         "RightFoot": "Ankle_Cross_Right",
     },
+
+    #! Nokov 格式到 G1 机器人的关节映射，基于 GMR 的关节对应逻辑实现。
+    ("nokov", "g1"): {
+        "Hips": "pelvis_contour_link",
+        "LeftUpLeg": "left_hip_pitch_link",
+        "RightUpLeg": "right_hip_pitch_link",
+        "LeftLeg": "left_knee_link",
+        "RightLeg": "right_knee_link",
+        "LeftArm": "left_shoulder_roll_link",
+        "RightArm": "right_shoulder_roll_link",
+        "LeftForeArm": "left_elbow_link",
+        "RightForeArm": "right_elbow_link",
+        "LeftFoot": "left_ankle_intermediate_1_link",
+        "RightFoot": "right_ankle_intermediate_1_link",
+        "LeftHand": "left_rubber_hand_link",
+        "RightHand": "right_rubber_hand_link",
+    },
+
 }
 
 # Data format specific constants
 TOE_NAMES_BY_FORMAT = {
     "sik_bvh": ["LeftFoot", "RightFoot"], #?
+    "nokov": ["LeftFoot", "RightFoot"],
     "lafan": ["LeftToeBase", "RightToeBase"],
     "smplh": ["L_Toe", "R_Toe"],
     "mocap": ["LeftToeBase", "RightToeBase"],
@@ -406,6 +436,9 @@ DATA_FORMAT_CONSTANTS: dict[str, FormatConstants] = {
     "sik_bvh": {
         "default_scale_factor": 1.27 / 1.7, #?
     },
+    "nokov": {
+        "default_scale_factor": 1.27 / 1.7, #?
+    },
     "lafan": {
         "default_scale_factor": 1.27 / 1.7,
     },
@@ -419,6 +452,7 @@ DATA_FORMAT_CONSTANTS: dict[str, FormatConstants] = {
 # No need to update any Literal types - DataFormat is now str with runtime validation
 DEMO_JOINTS_REGISTRY: dict[str, list[str]] = {
     "sik_bvh": SIK_BVH_JOINTS,
+    "nokov": NOKOV_DEMO_JOINTS,
     "lafan": LAFAN_DEMO_JOINTS,
     "smplh": SMPLH_DEMO_JOINTS,
     "mocap": MOCAP_DEMO_JOINTS,

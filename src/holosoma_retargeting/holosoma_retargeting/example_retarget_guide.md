@@ -25,7 +25,8 @@ python data_utils/extract_global_positions.py \
 
 python data_utils/extract_global_positions.py \
   --input_dir snooker \
-  --output_dir snooker_results
+  --output_dir snooker_npy \
+  --data_format nokov
 ```
 
 ## 3. 执行批量重定向
@@ -35,21 +36,11 @@ python data_utils/extract_global_positions.py \
 ```bash
 # 返回到 holosoma_retargeting 根目录
 cd ..
-
-# 执行批量重定向
-python examples/parallel_robot_retarget.py \
-  --data-dir 0119_npy \
-  --task-type robot_only \
-  --data_format sik_bvh \
-  --save_dir 0119_results \
-  --task-config.object-name ground \
-  --task-config.ground-range -10 10 \
-  --retargeter.foot-sticking-tolerance 0.02
-
+# 执行批量重定向 (针对 Nokov/Snooker 数据)
 python examples/parallel_robot_retarget.py \
   --data-dir snooker_npy \
   --task-type robot_only \
-  --data_format sik_bvh \
+  --data_format nokov \
   --save_dir snooker_results \
   --task-config.object-name ground \
   --task-config.ground-range -10 10 \
