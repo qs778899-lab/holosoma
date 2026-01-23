@@ -5,6 +5,9 @@ from pathlib import Path
 
 #python check_bvh_alignment.py
 
+
+#python check_bvh_alignment.py snooker/snooker2.bvh
+
 # Add the current directory and its parent to sys.path to import local modules
 current_dir = Path(__file__).resolve().parent
 if str(current_dir) not in sys.path:
@@ -37,10 +40,12 @@ def check_bvh(bvh_path):
     print(f"Expected joints (LAFAN): {len(LAFAN_DEMO_JOINTS)}")
     
     bvh_joints = anim.bones
-    print("\n--- Full Joint List from BVH (Index: Name) ---")
+    print("\n--- Full Joint List & Hierarchy (Index: Name [Parent]) ---")
     for idx, name in enumerate(bvh_joints):
-        print(f"{idx:2d}: {name}")
-    print("--------------------------------------------\n")
+        parent_idx = anim.parents[idx]
+        parent_name = bvh_joints[parent_idx] if parent_idx != -1 else "None (Root)"
+        print(f"{idx:2d}: {name:<20} [Parent: {parent_name}]")
+    print("----------------------------------------------------------\n")
     
     missing_joints = [j for j in LAFAN_DEMO_JOINTS if j not in bvh_joints]
     extra_joints = [j for j in bvh_joints if j not in LAFAN_DEMO_JOINTS]
@@ -88,10 +93,13 @@ def check_bvh(bvh_path):
         print("💡 Axis Convention: Likely Z-UP.")
 
 if __name__ == "__main__":
-    sample_bvh = current_dir / "0119" / "SIK337_zou_20251217_1648.bvh"
-    if not sample_bvh.exists():
-        # Try relative to workspace
-        sample_bvh = Path("src/holosoma_retargeting/holosoma_retargeting/0119/SIK337_zou_20251217_1648.bvh")
+    if len(sys.argv) > 1:
+        sample_bvh = Path(sys.argv[1])
+    else:
+        sample_bvh = current_dir / "0119" / "SIK337_zou_20251217_1648.bvh"
+        if not sample_bvh.exists():
+            # Try relative to workspace
+            sample_bvh = Path("src/holosoma_retargeting/holosoma_retargeting/0119/SIK337_zou_20251217_1648.bvh")
         
     if sample_bvh.exists():
         check_bvh(str(sample_bvh))

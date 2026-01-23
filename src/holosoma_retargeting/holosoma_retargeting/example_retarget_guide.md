@@ -1,6 +1,5 @@
-# 0119 文件夹 BVH 数据重定向完整流程
+#  Nokov格式的BVH文件的Retargeting重定向完整流程
 
-本指南介绍了如何将 `0119` 文件夹中的 BVH 格式人体运动数据重定向到 G1 机器人。
 
 ## 1. 准备工作
 
@@ -20,10 +19,13 @@ rm -rf ubisoft-laforge-animation-dataset
 重定向流水线需要世界坐标系下的关节点位置。使用以下命令将 `0119` 中的 `.bvh` 文件转换为 `.npy` 格式。
 
 ```bash
-# 在 data_utils 目录下执行
-python extract_global_positions.py \
-  --input_dir ../0119 \
-  --output_dir ../0119_npy
+python data_utils/extract_global_positions.py \
+  --input_dir 0119 \
+  --output_dir 0119_npy
+
+python data_utils/extract_global_positions.py \
+  --input_dir snooker \
+  --output_dir snooker_results
 ```
 
 ## 3. 执行批量重定向
@@ -40,6 +42,15 @@ python examples/parallel_robot_retarget.py \
   --task-type robot_only \
   --data_format sik_bvh \
   --save_dir 0119_results \
+  --task-config.object-name ground \
+  --task-config.ground-range -10 10 \
+  --retargeter.foot-sticking-tolerance 0.02
+
+python examples/parallel_robot_retarget.py \
+  --data-dir snooker_npy \
+  --task-type robot_only \
+  --data_format sik_bvh \
+  --save_dir snooker_results \
   --task-config.object-name ground \
   --task-config.ground-range -10 10 \
   --retargeter.foot-sticking-tolerance 0.02
@@ -66,21 +77,7 @@ python viser_player.py \
 
 python viser_player.py \
   --robot_urdf models/g1/g1_29dof.urdf \
-  --qpos_npz 0119_results/SIK115_zou_20251216_1134_original.npz
+  --qpos_npz snooker_results/snooker2_original.npz
 
-```
-
-## 5. (可选) 转换为 RL 训练格式
-
-如果你需要将这些数据用于强化学习训练（如 Whole-Body Tracking），请执行：
-
-```bash
-python data_conversion/convert_data_format_mj.py \
-  --input_file 0119_results/SIK337_zou_20251217_1648_original.npz \
-  --output_fps 50 \
-  --output_name 0119_converted/SIK337_zou_mj_fps50.npz \
-  --data_format lafan \
-  --object_name "ground" \
-  --once
 ```
 
