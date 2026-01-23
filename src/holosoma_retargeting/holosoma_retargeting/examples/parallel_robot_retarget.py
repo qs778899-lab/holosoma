@@ -61,7 +61,7 @@ def find_files(data_dir: Path, data_format: str, object_name: str | None = None)
 
     Args:
         data_dir: Directory to search for files
-        data_format: Data format ("lafan", "smplh", "mocap")
+        data_format: Data format ("lafan", "sik_bvh", "smplh", "mocap")
         object_name: Optional object name to filter files (for smplh format)
 
     Returns:
@@ -69,8 +69,8 @@ def find_files(data_dir: Path, data_format: str, object_name: str | None = None)
     """
     data_dir = Path(data_dir)
 
-    if data_format == "lafan":
-        # LAFAN: .npy files in root directory
+    if data_format in ["lafan", "sik_bvh"]:
+        # LAFAN/SIK_BVH: .npy files in root directory
         files = [str(p) for p in data_dir.glob("*.npy")]
         return sorted(files)
     if data_format == "smplh":

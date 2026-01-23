@@ -167,8 +167,104 @@ SMPLX_DEMO_JOINTS = [
     "R_Wrist",
 ]
 
+SIK_BVH_JOINTS = [
+    "Hips",
+    "RightUpLeg",
+    "RightLeg",
+    "RightFoot",
+    "LeftUpLeg",
+    "LeftLeg",
+    "LeftFoot",
+    "Spine",
+    "Spine1",
+    "Spine2",
+    "Neck",
+    "Neck1",
+    "Head",
+    "RightShoulder",
+    "RightArm",
+    "RightForeArm",
+    "RightHand",
+    "RightHandThumb1",
+    "RightHandThumb2",
+    "RightHandThumb3",
+    "RightHandIndex",
+    "RightHandIndex1",
+    "RightHandIndex2",
+    "RightHandIndex3",
+    "RightHandMiddle",
+    "RightHandMiddle1",
+    "RightHandMiddle2",
+    "RightHandMiddle3",
+    "RightHandRing",
+    "RightHandRing1",
+    "RightHandRing2",
+    "RightHandRing3",
+    "RightHandPinky",
+    "RightHandPinky1",
+    "RightHandPinky2",
+    "RightHandPinky3",
+    "LeftShoulder",
+    "LeftArm",
+    "LeftForeArm",
+    "LeftHand",
+    "LeftHandThumb1",
+    "LeftHandThumb2",
+    "LeftHandThumb3",
+    "LeftHandIndex",
+    "LeftHandIndex1",
+    "LeftHandIndex2",
+    "LeftHandIndex3",
+    "LeftHandMiddle",
+    "LeftHandMiddle1",
+    "LeftHandMiddle2",
+    "LeftHandMiddle3",
+    "LeftHandRing",
+    "LeftHandRing1",
+    "LeftHandRing2",
+    "LeftHandRing3",
+    "LeftHandPinky",
+    "LeftHandPinky1",
+    "LeftHandPinky2",
+    "LeftHandPinky3",
+]
+
 # Joint mappings - organized by (data_format, robot_type)
 JOINTS_MAPPINGS = {
+    ("sik_bvh", "g1"): {
+        "Spine1": "pelvis_contour_link",
+        "LeftUpLeg": "left_hip_pitch_link",
+        "RightUpLeg": "right_hip_pitch_link",
+        "LeftLeg": "left_knee_link",
+        "RightLeg": "right_knee_link",
+        "LeftArm": "left_shoulder_roll_link",
+        "RightArm": "right_shoulder_roll_link",
+        "LeftForeArm": "left_elbow_link",
+        "RightForeArm": "right_elbow_link",
+        "LeftFoot": "left_ankle_intermediate_1_link", #? 这个对应名称对吗？
+        "RightFoot": "right_ankle_intermediate_1_link",
+        "LeftHand": "left_rubber_hand_link",
+        "RightHand": "right_rubber_hand_link",
+    },
+
+
+    ("sik_bvh", "t1"): {
+        "Spine1": "Trunk",
+        "LeftUpLeg": "Hip_Pitch_Left",
+        "RightUpLeg": "Hip_Pitch_Right",
+        "LeftLeg": "Shank_Left",
+        "RightLeg": "Shank_Right",
+        "LeftArm": "AL1",
+        "RightArm": "AR1",
+        "LeftForeArm": "left_hand_link",
+        "RightForeArm": "right_hand_link",
+        "LeftFoot": "Ankle_Cross_Left",
+        "RightFoot": "Ankle_Cross_Right",
+        "LeftHand": "left_hand_sphere_link",
+        "RightHand": "right_hand_sphere_link",
+    },
+
+
     ("lafan", "g1"): {
         "Spine1": "pelvis_contour_link",
         "LeftUpLeg": "left_hip_pitch_link",
@@ -292,6 +388,7 @@ JOINTS_MAPPINGS = {
 
 # Data format specific constants
 TOE_NAMES_BY_FORMAT = {
+    "sik_bvh": ["LeftFoot", "RightFoot"], #?
     "lafan": ["LeftToeBase", "RightToeBase"],
     "smplh": ["L_Toe", "R_Toe"],
     "mocap": ["LeftToeBase", "RightToeBase"],
@@ -306,6 +403,9 @@ class FormatConstants(TypedDict, total=False):
 
 
 DATA_FORMAT_CONSTANTS: dict[str, FormatConstants] = {
+    "sik_bvh": {
+        "default_scale_factor": 1.27 / 1.7, #?
+    },
     "lafan": {
         "default_scale_factor": 1.27 / 1.7,
     },
@@ -318,6 +418,7 @@ DATA_FORMAT_CONSTANTS: dict[str, FormatConstants] = {
 # This is the SINGLE PLACE to add new formats - just add an entry here!
 # No need to update any Literal types - DataFormat is now str with runtime validation
 DEMO_JOINTS_REGISTRY: dict[str, list[str]] = {
+    "sik_bvh": SIK_BVH_JOINTS,
     "lafan": LAFAN_DEMO_JOINTS,
     "smplh": SMPLH_DEMO_JOINTS,
     "mocap": MOCAP_DEMO_JOINTS,

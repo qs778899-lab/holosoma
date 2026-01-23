@@ -215,6 +215,14 @@ def load_motion_data(
             # LAFAN-specific spine adjustment
             human_joints[:, spine_joint_idx, -1] -= 0.06
             smpl_scale = motion_data_config.default_scale_factor or 1.0
+        elif data_format == "sik_bvh":
+            npy_path = data_path / f"{task_name}.npy"
+            if not npy_path.exists():
+                raise FileNotFoundError(f"SIK_BVH data file not found: {npy_path}")
+
+            human_joints = np.load(str(npy_path))
+            human_joints = transform_y_up_to_z_up(human_joints)
+            smpl_scale = motion_data_config.default_scale_factor or 0.01
         elif data_format == "smplh":  # smplh
             pt_path = data_path / f"{task_name}.pt"
             if not pt_path.exists():
