@@ -19,10 +19,6 @@ rm -rf ubisoft-laforge-animation-dataset
 重定向流水线需要世界坐标系下的关节点位置。
 
 ```bash
-python data_utils/extract_global_positions.py \
-  --input_dir 0119 \
-  --output_dir 0119_npy
-
 conda activate hsretargeting
 python data_utils/extract_global_positions.py \
   --input_dir snooker \
@@ -62,9 +58,6 @@ python examples/parallel_robot_retarget.py \
 重定向完成后，你可以通过以下命令查看生成的机器人运动效果：
 
 ```bash
-python viser_player.py \
-  --robot_urdf models/g1/g1_29dof.urdf \
-  --qpos_npz 0119_results/SIK100_zou_20251216_1129_original.npz
 
 python viser_player.py \
   --robot_urdf models/g1/g1_29dof.urdf \
