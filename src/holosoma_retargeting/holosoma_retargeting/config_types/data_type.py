@@ -409,6 +409,8 @@ JOINTS_MAPPINGS = {
         "RightForeArm": "right_elbow_link",
         "LeftFoot": "left_ankle_intermediate_1_link",
         "RightFoot": "right_ankle_intermediate_1_link",
+        "LeftFootMod": "left_ankle_roll_sphere_5_link",
+        "RightFootMod": "right_ankle_roll_sphere_5_link",
         "LeftHand": "left_rubber_hand_link",
         "RightHand": "right_rubber_hand_link",
     },
@@ -418,7 +420,7 @@ JOINTS_MAPPINGS = {
 # Data format specific constants
 TOE_NAMES_BY_FORMAT = {
     "sik_bvh": ["LeftFoot", "RightFoot"], #?
-    "nokov": ["LeftFoot", "RightFoot"],
+    "nokov": ["LeftFootMod", "RightFootMod"],
     "lafan": ["LeftToeBase", "RightToeBase"],
     "smplh": ["L_Toe", "R_Toe"],
     "mocap": ["LeftToeBase", "RightToeBase"],

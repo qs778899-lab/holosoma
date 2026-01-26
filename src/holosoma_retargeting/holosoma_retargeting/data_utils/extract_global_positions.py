@@ -9,6 +9,7 @@ from pathlib import Path
 import numpy as np
 import tyro
 from lafan1 import extract, utils  # type: ignore[import-not-found]
+from scipy.spatial.transform import Rotation as R
 
 # Use absolute imports if possible or relative if running as module
 import sys
@@ -58,18 +59,57 @@ def extract_global_positions(bvh_file_path, target_joints=None):
     if target_joints:
         # Extract only target joints in the specified order
         extracted_positions = []
+        
+        #! foot: Define offsets for Nokov End Sites (Toe) relative to Foot (Ankle)
+        # Assuming offset is constant for Nokov skeleton: (0, -10, 15.12)
+        # Note: These values come from snooker2.bvh
+        left_toe_offset = np.array([0.0, -10.0, 15.12]) 
+        right_toe_offset = np.array([0.0, -10.0, 15.12])
+        
         for joint in target_joints:
             if joint in joint_names:
                 idx = joint_names.index(joint)
                 extracted_positions.append(positions[:, idx])
             elif joint == "LeftFootMod" and "LeftFoot" in joint_names:
-                # Special case for Nokov foot mod
+                # Special case for Nokov foot mod - compute Toe position
+                # BVH文件中没有LeftFootMod，这是我们为了约束脚尖而虚拟出来的关节
+                # 计算逻辑：LeftFoot全局位置 + LeftFoot全局旋转 * 偏移量
                 idx = joint_names.index("LeftFoot")
-                extracted_positions.append(positions[:, idx])
+
+                #! foot :
+                # extracted_positions.append(positions[:, idx])
+                foot_pos = positions[:, idx] # (Frames, 3)
+                foot_quat = global_quats[:, idx] # (Frames, 4) (w, x, y, z)
+                # Convert (w, x, y, z) to (x, y, z, w) for scipy Rotation
+                foot_quat_scipy = np.roll(foot_quat, -1, axis=1)
+                # Rotate offset
+                r = R.from_quat(foot_quat_scipy)
+                rotated_offset = r.apply(left_toe_offset)
+                # Add offset (scaled by 1/100 as positions are divided by 100)
+                toe_pos = foot_pos + (rotated_offset / 100.0)
+                extracted_positions.append(toe_pos)
+                
+                
             elif joint == "RightFootMod" and "RightFoot" in joint_names:
-                # Special case for Nokov foot mod
+                # Special case for Nokov foot mod - compute Toe position
+                # BVH文件中没有RightFootMod，这是我们为了约束脚尖而虚拟出来的关节
+                # 计算逻辑：RightFoot全局位置 + RightFoot全局旋转 * 偏移量
                 idx = joint_names.index("RightFoot")
-                extracted_positions.append(positions[:, idx])
+
+                #! foot :
+                # extracted_positions.append(positions[:, idx])
+                foot_pos = positions[:, idx]
+                foot_quat = global_quats[:, idx]
+                # Convert (w, x, y, z) to (x, y, z, w) for scipy Rotation
+                foot_quat_scipy = np.roll(foot_quat, -1, axis=1)
+                # Rotate offset
+                r = R.from_quat(foot_quat_scipy)
+                rotated_offset = r.apply(right_toe_offset)
+                # Add offset (scaled by 1/100)
+                toe_pos = foot_pos + (rotated_offset / 100.0)
+                extracted_positions.append(toe_pos)
+            
+            
             else:
                 print(f"Warning: Joint {joint} not found in BVH. Using zeros.")
                 extracted_positions.append(np.zeros((positions.shape[0], 3)))
