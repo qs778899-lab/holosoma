@@ -16,13 +16,14 @@ rm -rf ubisoft-laforge-animation-dataset
 
 ## 2. 提取全局坐标 (BVH -> NPY)
 
-重定向流水线需要世界坐标系下的关节点位置。使用以下命令将 `0119` 中的 `.bvh` 文件转换为 `.npy` 格式。
+重定向流水线需要世界坐标系下的关节点位置。
 
 ```bash
 python data_utils/extract_global_positions.py \
   --input_dir 0119 \
   --output_dir 0119_npy
 
+conda activate hsretargeting
 python data_utils/extract_global_positions.py \
   --input_dir snooker \
   --output_dir snooker_npy \
@@ -31,10 +32,9 @@ python data_utils/extract_global_positions.py \
 
 ## 3. 执行批量重定向
 
-转换完成后，使用并行重定向脚本处理所有序列。我们将结果保存到 `0119_results` 文件夹中。
+转换完成后，使用并行重定向脚本处理所有序列。
 
 ```bash
-# 返回到 holosoma_retargeting 根目录
 cd ..
 # 执行批量重定向 (针对 Nokov/Snooker 数据)
 python examples/parallel_robot_retarget.py \
@@ -68,7 +68,7 @@ python viser_player.py \
 
 python viser_player.py \
   --robot_urdf models/g1/g1_29dof.urdf \
-  --qpos_npz snooker_results/snooker2_original.npz
+  --qpos_npz snooker_results/snooker3_original.npz
 
 ```
 
