@@ -100,6 +100,8 @@ $$ \text{s.t. } A \Delta q \le b $$
 
 2. 改进腿部内八的不自然姿态：
 
+    Note: 不同bvh文件的left toe offset可能不同，但同一bvh文件肯定相同。
+
     bvh文件分为 HIERARCHY 和 MOTION 两大部分。（运行 python check_bvh_alignment.py snooker/snooker2.bvh 可查看具体数据格式和内容）
     - **HIERARCHY 部分**是一个分层树结构，定义了骨骼的拓扑关系。每一个 Joint 记录了相对于父节点的 `OFFSET`（三维偏移量），这决定了骨骼的静态比例（如大腿长度）。同时，它通过 `CHANNELS` 声明了该关节在 MOTION 部分占用的数据量和含义。
     - **MOTION 部分**是动画序列的原始数值记录。每一行代表一帧（Frame），包含了一长串由空格分隔的数字。这些数字的排列顺序严格遵循 HIERARCHY 部分定义的深度优先遍历顺序。例如索引0-5是Hips (Root)的Xpos, Ypos, Zpos, Yrot, Xrot, Zrot。
