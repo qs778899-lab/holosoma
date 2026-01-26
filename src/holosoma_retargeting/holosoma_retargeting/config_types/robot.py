@@ -219,7 +219,7 @@ class RobotConfig:
             return self.nominal_tracking_indices
 
         if self.robot_type == "g1":
-            return np.arange(19)
+            return np.arange(19) #仅包含前 19 个自由度（根节点位姿 + 12 个腿部驱动关节）
         if self.robot_type == "t1":
             return np.concatenate([np.arange(7), np.arange(11, 23)])
         # Default: return empty array if robot type not defined (nominal tracking not used)

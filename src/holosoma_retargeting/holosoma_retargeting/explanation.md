@@ -28,7 +28,7 @@
     1.  **Laplacian 项 (核心成本)**: 
         *   **代码实现**: `obj_terms.append(cp.sum_squares(cp.multiply(sqrt_w3, lap_var - target_lap_vec)))` (第 598 行)。
         *   **细节**: 它计算关节 \(V_i\) 与其所有邻居 \(V_j\) 的相对向量之和（即 \(L \cdot V\)）。邻居关系通过 Delaunay 三角化确定（第 354 行）。这使得算法优化的不是“手在世界坐标系的 (x,y,z)”，而是“手相对于躯干、膝盖以及物体的**相对位移向量**”。
-        *   **G1 关节选择**: 基于 `data_type.py` 中的 `JOINTS_MAPPINGS`。对于 G1 机器人，包含全身核心的 **13 个关键点**（盆骨、双侧髋/膝/踝、双侧肩/肘/手）。它决定了“全身看起来像不像人”。
+        *   **G1 关节选择**: 基于 `data_type.py` 中的 `JOINTS_MAPPINGS`。对于 G1 机器人，包含全身核心的 **13 个关键点**（髋部，左右大腿，左右膝盖，左右大臂，左右小臂，左右脚踝，左右手）。
     2.  **Nominal Tracking 项 (姿态参考)**: 
         *   **代码实现**: `obj_terms.append(w_nominal_tracking * cp.sum_squares(z))` (第 605 行)。`z = dqa[idx] - (q_a_nominal[idx] - q_a_n_last[idx])` (第 604 行)。
         `z` 代表当前关节角速度与目标关节角速度的偏差。
@@ -81,5 +81,6 @@ $$ \text{s.t. } A \Delta q \le b $$
 
     *   holosoma运行慢很多
     *   GMR得到的robot腿部的运动更自然，不容易有内八
+
 
 

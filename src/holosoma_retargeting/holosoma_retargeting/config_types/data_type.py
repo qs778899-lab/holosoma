@@ -397,22 +397,23 @@ JOINTS_MAPPINGS = {
     },
 
     #! Nokov 格式到 G1 机器人的关节映射，基于 GMR 的关节对应逻辑实现。
+    #! foot: 增加两行
     ("nokov", "g1"): {
-        "Hips": "pelvis_contour_link",
-        "LeftUpLeg": "left_hip_pitch_link",
-        "RightUpLeg": "right_hip_pitch_link",
-        "LeftLeg": "left_knee_link",
-        "RightLeg": "right_knee_link",
-        "LeftArm": "left_shoulder_roll_link",
-        "RightArm": "right_shoulder_roll_link",
-        "LeftForeArm": "left_elbow_link",
-        "RightForeArm": "right_elbow_link",
-        "LeftFoot": "left_ankle_intermediate_1_link",
-        "RightFoot": "right_ankle_intermediate_1_link",
-        "LeftFootMod": "left_ankle_roll_sphere_5_link",
-        "RightFootMod": "right_ankle_roll_sphere_5_link",
-        "LeftHand": "left_rubber_hand_link",
-        "RightHand": "right_rubber_hand_link",
+        "Hips": "pelvis_contour_link",               # 髋部
+        "LeftUpLeg": "left_hip_pitch_link",          # 左大腿
+        "RightUpLeg": "right_hip_pitch_link",        # 右大腿
+        "LeftLeg": "left_knee_link",                 # 左膝盖
+        "RightLeg": "right_knee_link",               # 右膝盖
+        "LeftArm": "left_shoulder_roll_link",        # 左大臂
+        "RightArm": "right_shoulder_roll_link",       # 右大臂
+        "LeftForeArm": "left_elbow_link",            # 左小臂
+        "RightForeArm": "right_elbow_link",           # 右小臂
+        "LeftFoot": "left_ankle_intermediate_1_link",  # 左脚踝
+        "RightFoot": "right_ankle_intermediate_1_link", # 右脚踝
+        "LeftFootMod": "left_ankle_roll_sphere_5_link", # 左脚末端修正
+        "RightFootMod": "right_ankle_roll_sphere_5_link", # 右脚末端修正
+        "LeftHand": "left_rubber_hand_link",         # 左手
+        "RightHand": "right_rubber_hand_link",        # 右手
     },
 
 }
@@ -420,7 +421,8 @@ JOINTS_MAPPINGS = {
 # Data format specific constants
 TOE_NAMES_BY_FORMAT = {
     "sik_bvh": ["LeftFoot", "RightFoot"], #?
-    "nokov": ["LeftFootMod", "RightFootMod"],
+    # "nokov": ["LeftFoot", "RightFoot"], #! foot
+    "nokov": ["LeftFootMod", "RightFootMod"], #! foot
     "lafan": ["LeftToeBase", "RightToeBase"],
     "smplh": ["L_Toe", "R_Toe"],
     "mocap": ["LeftToeBase", "RightToeBase"],

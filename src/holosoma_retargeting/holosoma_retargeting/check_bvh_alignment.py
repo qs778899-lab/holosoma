@@ -83,7 +83,14 @@ def check_bvh(bvh_path):
     print(f"\n[3] Root Position (First Frame):")
     print(f"Hips position: {root_pos}")
     
-    # 5. Check Axis Convention
+    # 5. Check Detailed Joint Content (Last 5 Joints of Frame 0)
+    print(f"\n[4] Detailed Joint Positions (Last 5 Joints of First Frame):")
+    num_joints = len(anim.bones)
+    for i in range(max(0, num_joints - 5), num_joints):
+        pos = global_positions[0, i]
+        print(f"Index {i:2d} | Name: {anim.bones[i]:<20} | Global Pos (m): [{pos[0]:.4f}, {pos[1]:.4f}, {pos[2]:.4f}]")
+
+    # 6. Check Axis Convention
     # In BVH, Y is typically up. Let's see which axis has the largest spread for "height"
     y_spread = maxs[1] - mins[1]
     z_spread = maxs[2] - mins[2]
