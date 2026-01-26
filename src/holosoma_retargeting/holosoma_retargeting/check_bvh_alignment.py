@@ -83,12 +83,32 @@ def check_bvh(bvh_path):
     print(f"\n[3] Root Position (First Frame):")
     print(f"Hips position: {root_pos}")
     
-    # 5. Check Detailed Joint Content (Last 5 Joints of Frame 0)
-    print(f"\n[4] Detailed Joint Positions (Last 5 Joints of First Frame):")
-    num_joints = len(anim.bones)
-    for i in range(max(0, num_joints - 5), num_joints):
-        pos = global_positions[0, i]
-        print(f"Index {i:2d} | Name: {anim.bones[i]:<20} | Global Pos (m): [{pos[0]:.4f}, {pos[1]:.4f}, {pos[2]:.4f}]")
+    # 5. Check All Joint Definitions (Raw Hierarchy)
+    print(f"\n[4] Complete BVH Hierarchy Definitions:")
+    with open(bvh_path, 'r') as f:
+        hierarchy_lines = []
+        in_hierarchy = False
+        for line in f:
+            if "HIERARCHY" in line:
+                in_hierarchy = True
+                continue
+            if "MOTION" in line:
+                break
+            if in_hierarchy:
+                print(f"  {line.rstrip()}")
+    
+    print("\n" + "="*60)
+    
+    # 6. Check Specific Joint Global Positions (First Frame)
+    print(f"\n[5] Specific Joint Global Positions (First Frame):")
+    target_debug_joints = ["LeftFoot", "RightFoot"]
+    for name in target_debug_joints:
+        if name in anim.bones:
+            idx = anim.bones.index(name)
+            pos = global_positions[0, idx]
+            print(f"Index {idx:2d} | Name: {name:<20} | Global Pos (m): [{pos[0]:.4f}, {pos[1]:.4f}, {pos[2]:.4f}]")
+        else:
+            print(f"❌ Joint {name} not found in BVH.")
 
     # 6. Check Axis Convention
     # In BVH, Y is typically up. Let's see which axis has the largest spread for "height"
@@ -98,6 +118,70 @@ def check_bvh(bvh_path):
         print("💡 Axis Convention: Likely Y-UP (standard BVH).")
     else:
         print("💡 Axis Convention: Likely Z-UP.")
+
+    # 7. Check Motion Data (First Frame)
+    print(f"\n[6] Motion Data Analysis (First Frame):")
+    with open(bvh_path, 'r') as f:
+        lines = f.readlines()
+        
+    in_motion = False
+    motion_start_idx = -1
+    for i, line in enumerate(lines):
+        if "MOTION" in line:
+            in_motion = True
+            continue
+        if in_motion:
+            if "Frames:" in line:
+                print(f"  {line.strip()}")
+            elif "Frame Time:" in line:
+                print(f"  {line.strip()}")
+            elif line.strip() and not any(c.isalpha() for c in line.strip().split()[0]):
+                motion_start_idx = i
+                break
+    
+    if motion_start_idx != -1:
+        first_frame_raw = lines[motion_start_idx].strip().split()
+        print(f"  Total Channels in Motion Line: {len(first_frame_raw)}")
+        
+        # --- NEW: Build Channel Mapping ---
+        print(f"\n  --- Motion Channel Mapping (First 20 Channels) ---")
+        channel_map = []
+        current_joint = None
+        
+        # Simple parser to find joint names and their channel counts
+        with open(bvh_path, 'r') as f:
+            for line in f:
+                line = line.strip()
+                if line.startswith("ROOT") or line.startswith("JOINT"):
+                    current_joint = line.split()[1]
+                elif line.startswith("CHANNELS"):
+                    parts = line.split()
+                    count = int(parts[1])
+                    names = parts[2:]
+                    for name in names:
+                        channel_map.append(f"{current_joint}.{name}")
+        
+        for idx in range(min(20, len(channel_map))):
+            val = first_frame_raw[idx] if idx < len(first_frame_raw) else "N/A"
+            print(f"  Index {idx:2d} | {channel_map[idx]:<30} | Value: {val}")
+        
+        print(f"  ... (Mapping continues for all 180 channels) ...")
+        
+        print(f"\n  First Frame Raw Data (Full):")
+        # 打印完整数据，每 10 个数值换一行以便阅读
+        for i in range(0, len(first_frame_raw), 10):
+            chunk = first_frame_raw[i : i + 10]
+            print(f"    {' '.join(chunk)}")
+        
+        # Breakdown of the first few channels (typically Hips)
+        print(f"\n  --- Data Format Breakdown (Initial Root Channels) ---")
+        # In BVH, the first joint (Hips) usually has 6 channels: Xpos Ypos Zpos Yrot Xrot Zrot
+        channel_names = ["Xpos", "Ypos", "Zpos", "Yrot", "Xrot", "Zrot"]
+        for idx, name in enumerate(channel_names):
+            if idx < len(first_frame_raw):
+                print(f"  Channel {idx:2d}: {name:<10} = {first_frame_raw[idx]}")
+    else:
+        print("❌ Could not find motion data in BVH.")
 
 if __name__ == "__main__":
     if len(sys.argv) > 1:

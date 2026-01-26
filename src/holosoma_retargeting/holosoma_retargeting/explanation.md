@@ -85,12 +85,41 @@ $$ \text{s.t. } A \Delta q \le b $$
 
 
 
-## 6. 补充知识：
+## 6. 补充和改进：
 
 1. Joint 和 Link: 
     
     * Link（连杆）: 机器人的刚性身体部分, 在retarget中将人的关节映射到link。
     * Joint（关节）：连接两个 Link 的部件，在robot中的主动关节（DOF）指这些旋转轴。
+
+    输入（点）：人类的关节坐标。
+
+    计算（优化）：寻找一组 Joint 角度。
+
+    结果（Link）：使得机器人的 Link 上的特定点与人类的关节坐标尽量重合。
+
+2. 改进腿部内八的不自然姿态：
+
+    bvh文件分为 HIERARCHY 和 MOTION 两大部分。（运行 python check_bvh_alignment.py snooker/snooker2.bvh 可查看具体数据格式和内容）
+    - **HIERARCHY 部分**是一个分层树结构，定义了骨骼的拓扑关系。每一个 Joint 记录了相对于父节点的 `OFFSET`（三维偏移量），这决定了骨骼的静态比例（如大腿长度）。同时，它通过 `CHANNELS` 声明了该关节在 MOTION 部分占用的数据量和含义。
+    - **MOTION 部分**是动画序列的原始数值记录。每一行代表一帧（Frame），包含了一长串由空格分隔的数字。这些数字的排列顺序严格遵循 HIERARCHY 部分定义的深度优先遍历顺序。例如索引0-5是Hips (Root)的Xpos, Ypos, Zpos, Yrot, Xrot, Zrot。
+    - **两者关系**：MOTION 部分的数字本身没有标签，必须依靠 HIERARCHY 定义的通道数（如 Hips 占 6 个位移+旋转通道，普通关节占 3 个旋转通道）来依次解析。
+    
+    （所以，Nominal 项也无法track脚踝的角度?  那GMR是在怎么处理这种bvh文件，是否有内置库函数可以先计算出每个joint的旋转角）
+
+    bvh文件中LeftFoot的特殊完整数据内容：
+    JOINT LeftFoot
+      {
+      OFFSET 0.0 -42.057999 0.0 #脚踝相对于膝盖的偏移向量
+      CHANNELS 3 Yrotation Xrotation Zrotation
+      End Site
+      {
+      OFFSET 0.000000 -10.000000 15.120000 #脚尖相对于脚踝的偏移向量
+      }
+      }
+
+
+
 
 
 
