@@ -7,7 +7,7 @@
 *   **GMR (Online-retargeting)**:
     *   **本质**: 单纯的**逐帧优化 (Frame-by-frame IK)**。
     *   **实现**: 在 `motion_retarget.py` 的 `retarget` 方法中，每输入一帧人体数据 `human_data`，它通过 `mink.solve_ik` 调用底层求解器，计算出当前帧的最佳 `qpos`。每一帧的求解相对独立（仅以当前姿态作为初值）。
-*   **Holosoma**:
+*   **Holosoma (Offline-retargeting)**:
     *   **本质**: 同样是**逐帧执行的序列优化**。
     *   **实现**:  在 `interaction_mesh_retargeter.py` 的 `retarget_motion` 方法中，它通过一个循环按时间顺序逐帧处理序列。
     *   **区别**: 虽然是逐帧求解，但 Holosoma 在目标函数中加入了**平滑项 (Smoothness cost)**（代码第 612-621 行）和针对时间步的缩放策略（初始化阶段w_nominal_tracking权重高先靠近标准姿态， 后随着时间推移权重下降让机器人能够更自由地跟随 Laplacian 交互网格 进行运动），使其在序列上表现更连贯。
@@ -80,7 +80,17 @@ $$ \text{s.t. } A \Delta q \le b $$
 ## 5. 实际使用体验
 
     *   holosoma运行慢很多
-    *   GMR得到的robot腿部的运动更自然，不容易有内八
+    *   GMR得到的robot腿部的运动更自然
+    *   holosoma腿部运动容易内八的原因：（1）在 Laplacian项中，只考虑点对点，无角度关系。 (2) Nominal 项的权重太低。
+
+
+
+## 6. 补充知识：
+
+1. Joint 和 Link: 
+    
+    * Link（连杆）: 机器人的刚性身体部分, 在retarget中将人的关节映射到link。
+    * Joint（关节）：连接两个 Link 的部件，在robot中的主动关节（DOF）指这些旋转轴。
 
 
 
