@@ -19,5 +19,20 @@
   <worldbody>
     <light pos="0 0 1.5" dir="0 0 -1" directional="true"/>
     <geom name="floor" size="0 0 0.05" type="plane" material="groundplane"/>
+
+    <!-- Snooker Table: Height ~0.8m, Pos adjusted to be in front of robot -->
+    <body name="snooker_table" pos="1.7 0 0.8">
+      <geom type="box" size="1.2 0.8 0.04" rgba="0 0.4 0.1 1"/> <!-- Table Top (Green) -->
+      <geom type="box" size="1.22 0.05 0.06" pos="0 0.85 0.04" rgba="0.3 0.2 0.1 1"/> <!-- Rail -->
+      <geom type="box" size="1.22 0.05 0.06" pos="0 -0.85 0.04" rgba="0.3 0.2 0.1 1"/> <!-- Rail -->
+      <geom type="box" size="0.05 0.9 0.06" pos="1.27 0 0.04" rgba="0.3 0.2 0.1 1"/> <!-- Rail -->
+      <geom type="box" size="0.05 0.9 0.06" pos="-1.27 0 0.04" rgba="0.3 0.2 0.1 1"/> <!-- Rail -->
+      <!-- Legs -->
+      <geom type="cylinder" size="0.04 0.4" pos="1.1 0.7 -0.4" rgba="0.2 0.1 0 1"/>
+      <geom type="cylinder" size="0.04 0.4" pos="1.1 -0.7 -0.4" rgba="0.2 0.1 0 1"/>
+      <geom type="cylinder" size="0.04 0.4" pos="-1.1 0.7 -0.4" rgba="0.2 0.1 0 1"/>
+      <geom type="cylinder" size="0.04 0.4" pos="-1.1 -0.7 -0.4" rgba="0.2 0.1 0 1"/>
+    </body>
+  
   </worldbody>
 </mujoco>

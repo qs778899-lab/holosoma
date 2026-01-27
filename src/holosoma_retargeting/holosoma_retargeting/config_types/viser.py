@@ -19,6 +19,9 @@ class ViserConfig:
     robot_urdf: str = "models/g1/g1_29dof.urdf"
     """Path to robot URDF file."""
 
+    mjcf_path: str | None = None
+    """Path to MuJoCo XML (MJCF) scene file. If provided, overrides robot_urdf."""
+
     object_urdf: str | None = None
     """Path to object URDF file (optional)."""
 
