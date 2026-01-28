@@ -46,3 +46,6 @@ class RetargeterConfig:
 
     nominal_tracking_tau: float = 1e6
     """Time constant for the nominal tracking cost."""
+
+    snooker_frame_range: list[int] | None = None
+    """[start_frame, end_frame] where snooker constraints are active."""

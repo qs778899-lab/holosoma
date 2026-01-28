@@ -57,6 +57,7 @@ class InteractionMeshRetargeter:
         debug: bool = False,
         w_nominal_tracking_init: float = 5.0,
         nominal_tracking_tau: float = 10.0,
+        snooker_frame_range: list[int] | None = None,
     ):
         """This kinematic retargeter solves the diffIK problem with hard constraints in SQP style.
         During each SQP iteration, the problem is solved with the following constraints and costs:
@@ -77,6 +78,7 @@ class InteractionMeshRetargeter:
             penetration_tolerance: tolerance for penetration when enforcing non-penetration constraints.
             foot_sticking_tolerance: tolerance for foot sticking constraints in x, y.
             nominal_tracking_tau: the time constant for the nominal tracking cost.
+            snooker_frame_range: [start_frame, end_frame] where snooker constraints are active.
         """
 
         self.robot_model_path = task_constants.ROBOT_URDF_FILE
@@ -94,6 +96,9 @@ class InteractionMeshRetargeter:
         self.demo_joints = task_constants.DEMO_JOINTS
         self.laplacian_match_links = task_constants.JOINTS_MAPPING
         self.task_constants = task_constants
+
+        self.snooker_frame_range = snooker_frame_range
+        self.snooker_ramp_frames = 15  # 渐变过渡帧数
 
         self.smplh_mapped_joint_indices = [self.demo_joints.index(name) for name in self.laplacian_match_links]
 
@@ -397,6 +402,7 @@ class InteractionMeshRetargeter:
                     q_a_nominal=(q_nominal_list[i, self.q_a_indices] if q_nominal_list is not None else None),
                     init_t=i == 0,
                     n_iter=50 if i == 0 else 10,
+                    frame_idx=i,
                 )
                 if self.debug:
                     robot_link_positions = self._get_robot_link_positions(
@@ -487,6 +493,7 @@ class InteractionMeshRetargeter:
         q_a_nominal: np.ndarray | None = None,
         verbose=False,
         init_t=False,
+        frame_idx: int = 0,
     ):
         """The main function to solve a single iteration of the DiffIK problem.
         Args:
@@ -523,7 +530,40 @@ class InteractionMeshRetargeter:
         robot_pts_local = np.array([p_OC_dict[k] for k in robot_link_keys])
         vertices = np.vstack([robot_pts_local, obj_pts_local])  # (V x 3)
 
-        L = calculate_laplacian_matrix(vertices, adj_list)  # (V x V), EXPECT SPARSE OR SMALL
+        #! cue: Snooker activity logic (Frame Gating + Smooth Transition)
+        snooker_alpha = 0.0
+        if self.snooker_frame_range is not None:
+            start_f, end_f = self.snooker_frame_range
+            ramp = self.snooker_ramp_frames
+            if start_f <= frame_idx <= end_f:
+                # 计算平滑过渡因子 alpha
+                if frame_idx < start_f + ramp:
+                    snooker_alpha = (frame_idx - start_f) / ramp
+                elif frame_idx > end_f - ramp:
+                    snooker_alpha = (end_f - frame_idx) / ramp
+                else:
+                    snooker_alpha = 1.0
+
+        # Snooker-specific: add manual edges and adjust weights
+        if snooker_alpha > 0 and ("RightHandGrip" in robot_link_keys) and ("LeftHandBridge" in robot_link_keys) and ("CueTip" in robot_link_keys):
+            # 获取这三个关键点在网格顶点列表中的索引
+            rh_grip_idx = robot_link_keys.index("RightHandGrip")
+            lh_bridge_idx = robot_link_keys.index("LeftHandBridge")
+            cue_tip_idx = robot_link_keys.index("CueTip")
+            
+            # 在邻接表（adj_list）中增加边：右手握杆点 <-> 左手架杆点
+            # if lh_bridge_idx not in adj_list[rh_grip_idx]:
+            #     adj_list[rh_grip_idx].append(lh_bridge_idx) #adj_list[i] 存储了所有与第 i 个点直接相连的点的索引。
+            # if rh_grip_idx not in adj_list[lh_bridge_idx]:
+            #     adj_list[lh_bridge_idx].append(rh_grip_idx)
+                
+            # 优先保留这个约束：在邻接表（adj_list）中增加边：左手架杆点 <-> 球杆尖端
+            if cue_tip_idx not in adj_list[lh_bridge_idx]:
+                adj_list[lh_bridge_idx].append(cue_tip_idx)
+            if lh_bridge_idx not in adj_list[cue_tip_idx]:
+                adj_list[cue_tip_idx].append(lh_bridge_idx)
+
+        L = calculate_laplacian_matrix(vertices, adj_list)  # (V x V)
         if not sp.issparse(L):
             L = sp.csr_matrix(L)
 
@@ -534,7 +574,18 @@ class InteractionMeshRetargeter:
         lap0_vec = lap0.reshape(-1)  # (3V,)
         target_lap_vec = target_laplacian.reshape(-1)  # (3V,)
 
-        w_v = (self.laplacian_weights * np.ones(V)).astype(float)  # (V,)
+        # 计算 Laplacian 权重
+        w_v = (self.laplacian_weights * np.ones(V)).astype(float)
+        
+        # 应用 Snooker 权重降低方案
+        if snooker_alpha > 0:
+            # 对于球杆相关的三个点，降低其权重（基准权重设为 1.0）
+            # 权重随 alpha 平滑过渡：当 alpha 为 0 时权重为默认 10，当 alpha 为 1 时权重为 1
+            snooker_weight = 10.0 - (9.0 * snooker_alpha) # 从 10 渐变到 1
+            w_v[rh_grip_idx] = snooker_weight
+            w_v[lh_bridge_idx] = snooker_weight
+            w_v[cue_tip_idx] = snooker_weight
+
         sqrt_w3 = np.sqrt(np.repeat(w_v, 3))
 
         # Decision variables
@@ -655,6 +706,7 @@ class InteractionMeshRetargeter:
         q_a_nominal: np.ndarray | None = None,
         init_t: bool = False,
         n_iter: int = 10,
+        frame_idx: int = 0,
     ):
         """Iterate the solver for multiple iterations."""
         last_cost = np.inf
@@ -671,6 +723,7 @@ class InteractionMeshRetargeter:
                 q_a_nominal=q_a_nominal,
                 w_nominal_tracking=w_nominal_tracking,
                 init_t=init_t,
+                frame_idx=frame_idx,
             )
             if np.isclose(cost, last_cost):
                 break

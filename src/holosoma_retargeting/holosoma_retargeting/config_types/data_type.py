@@ -255,6 +255,9 @@ NOKOV_DEMO_JOINTS = [
     "LeftHand",
     "LeftFootMod",
     "RightFootMod",
+    "CueTip",
+    "LeftHandBridge",
+    "RightHandGrip",
 ]
 
 # Joint mappings - organized by (data_format, robot_type)
@@ -414,6 +417,9 @@ JOINTS_MAPPINGS = {
         "RightFootMod": "right_ankle_roll_sphere_5_link", # 右脚末端修正
         "LeftHand": "left_rubber_hand_link",         # 左手
         "RightHand": "right_rubber_hand_link",        # 右手
+        "CueTip": "cue_tip",
+        "LeftHandBridge": "left_hand_bridge",
+        "RightHandGrip": "right_hand_grip",
     },
 
 }

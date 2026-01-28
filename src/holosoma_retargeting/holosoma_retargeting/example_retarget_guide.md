@@ -39,15 +39,18 @@ python examples/parallel_robot_retarget.py \
   --data_format nokov \
   --save_dir snooker_results \
   --task-config.object-name ground \
-  --task-config.ground-range -10 10 \
-  --retargeter.foot-sticking-tolerance 0.02
+  --task-config.ground-range -5 5 \
+  --retargeter.foot-sticking-tolerance 0.02 \
+  --max-workers 12 \
+  --retargeter.snooker-frame-range 580  1300
+
 ```
 
 **参数说明：**
 - python examples/parallel_robot_retarget.py: 调用并行重定向主脚本，利用多核 CPU 同时处理多个文件。
 - --data-dir: 输入目录，脚本会遍历该目录下所有的 .npy 运动文件。
 - --task-type robot_only: 任务模式。robot_only 表示仅重定向机器人动作，不涉及物体交互或复杂地形。
-- --data_format lafan: 输入数据格式。告知脚本以 LAFAN 的骨骼结构和坐标规范来解析 .npy 文件。
+- --data_format : 输入数据格式。比如告知脚本以 LAFAN或者nokov 的骨骼结构和坐标规范来解析 .npy 文件。
 - --save_dir: 结果保存目录。每个 BVH 序列处理完后，会在此生成对应的 .npz 文件。
 - --task-config.object-name ground: 指定交互对象为地面。在 robot_only 模式下，这是保证机器人不穿模地面的关键配置。
 - --task-config.ground-range -10 10: 地面判定范围。定义从 -10m 到 10m 的区域为有效接触平面。
@@ -66,6 +69,10 @@ python viser_player.py \
 python viser_player.py \
   --mjcf_path models/g1/scene_29dof_cue.xml \
   --qpos_npz snooker_results/snooker2_original.npz
+
+python viser_player.py \
+  --mjcf_path models/g1/scene_29dof_cue.xml \
+  --qpos_npz snooker_results0126/snooker2_original.npz
 
 ```
 

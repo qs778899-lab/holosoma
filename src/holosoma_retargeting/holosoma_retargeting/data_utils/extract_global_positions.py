@@ -50,7 +50,7 @@ def extract_global_positions(bvh_file_path, target_joints=None):
     # Read BVH file
     anim = extract.read_bvh(bvh_file_path)
 
-    # Compute global positions using Forward Kinematics
+    # Compute global positions using Forward Kinematics：利用原始数据的局部位置和旋转计算每个关节的全局位置和旋转
     global_quats, global_positions = utils.quat_fk(anim.quats, anim.pos, anim.parents)
     
     positions = global_positions / 100 # cm to m
@@ -109,11 +109,40 @@ def extract_global_positions(bvh_file_path, target_joints=None):
                 toe_pos = foot_pos + (rotated_offset / 100.0)
                 extracted_positions.append(toe_pos)
             
-            
+            # 处理左手架杆点：直接映射真人的左手全局位置
+            elif joint == "LeftHandBridge" and "LeftHand" in joint_names:
+                idx = joint_names.index("LeftHand")
+                extracted_positions.append(positions[:, idx])
+            # 处理右手握杆点：直接映射真人的右手全局位置
+            elif joint == "RightHandGrip" and "RightHand" in joint_names:
+                idx = joint_names.index("RightHand")
+                extracted_positions.append(positions[:, idx])
+            # 处理虚拟球杆尖端：通过真人左右手的位置“延长”出球杆末端
+            elif joint == "CueTip" and "RightHand" in joint_names and "LeftHand" in joint_names:
+                # Calculate Cue Tip position: extend from RightHand through LeftHand
+                # 获取真人右手和左手在 BVH 中的索引
+                rh_idx = joint_names.index("RightHand")
+                lh_idx = joint_names.index("LeftHand")
+                # 提取所有帧的左右手世界坐标
+                rh_pos = positions[:, rh_idx]
+                lh_pos = positions[:, lh_idx]    
+                # 计算从右手指向左手的向量（即球杆的方向）
+                direction = lh_pos - rh_pos
+                dist = np.linalg.norm(direction, axis=-1, keepdims=True)
+                # Normalize direction
+                direction_norm = direction / (dist + 1e-8)
+                
+                # 优化方案：不再使用1.35m的总长。
+                # 我们定义尖端在左手(架杆点)前方 0.4 米处。
+                # 这样缩短了力臂，能显著减少重定向时机器人手腕的异常扭动。
+                cue_tip_pos = lh_pos + direction_norm * 0.4
+                extracted_positions.append(cue_tip_pos)
             else:
                 print(f"Warning: Joint {joint} not found in BVH. Using zeros.")
                 extracted_positions.append(np.zeros((positions.shape[0], 3)))
+
         
+        # extracted_positions： 存储了经过筛选、排序以及计算后的关节点全局坐标数据。
         positions = np.stack(extracted_positions, axis=1)
         joint_names = target_joints
 
