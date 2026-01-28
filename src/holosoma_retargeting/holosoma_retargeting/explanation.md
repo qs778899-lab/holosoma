@@ -20,6 +20,13 @@
 *   **数学本质**: 
     $$ \min \| p_{robot} - p_{human, target} \|^2 + \| \text{rot}_{robot} - \text{rot}_{human, target} \|^2 $$
     它将机器人关节强行推向人体关节在世界坐标系中的对应位置。如果身材比例不一致（如人手长、机器人手短），这种方法容易导致肢体扭曲或无法触及。
+    *   **G1 关节选择**: 
+        基于 `ik_configs/bvh_nokov_to_g1.json`。GMR 为 G1 显式定义了 **14 个核心追踪连杆**：
+        *   **躯干与基座**: `pelvis` (盆骨), `torso_link` (对应人体 Spine2)。
+        *   **下肢 (双侧)**: `hip_yaw_link`, `knee_link`, `ankle_roll_link` (足部)。
+        *   **上肢 (双侧)**: `shoulder_yaw_link`, `elbow_link`, `wrist_yaw_link` (手腕)。
+
+        为什么wrist只选择yaw一个自由度：链条顺序：肘部 → wrist_roll → wrist_pitch → wrist_yaw → 橡胶手(固定)。在逆运动学中，如果你想控制整只手的最终姿态（位置和旋转），你必须把目标（Constraint Target）设置在这条链条的最后一个连杆上。
 
 ### Holosoma 的目标函数：交互网格 (Interaction Mesh)
 *   **核心逻辑**: 最小化**局部微分坐标 (Laplacian Coordinates)** 的偏差。
@@ -127,5 +134,30 @@ $$ \text{s.t. } A \Delta q \le b $$
 
     * XML：专为物理仿真设计。它可以定义整个“世界”，包括多个独立的物体、复杂的碰撞、真实的光照和材质。
 
+4. G1 link列表
+
+    | 连杆名称 (Link Name) | 中文名称 | 备注 |
+    | :--- | :--- | :--- |
+    | **pelvis** | 盆骨 | 机器人的根部基座 (Root) |
+    | **waist_yaw/roll_link** | 腰部偏航/横滚连杆 | 控制腰部转动的环节 |
+    | **torso_link** | 躯干连杆 | 机器人的上半身主体 |
+    | **head_link** | 头部连杆 | 头部位置 |
+    | **left/right_hip_pitch_link** | 髋部俯仰连杆 | 大腿根部，控制腿部前后摆动 |
+    | **left/right_hip_roll_link** | 髋部横滚连杆 | 大腿根部，控制腿部左右摆动 |
+    | **left/right_hip_yaw_link** | 髋部偏航连杆 | 大腿根部，控制腿部旋转 |
+    | **left/right_knee_link** | 膝部连杆 | 膝关节 |
+    | **left/right_ankle_pitch_link**| 踝部俯仰连杆 | 踝关节前后移动 |
+    | **left/right_ankle_roll_link** | 踝部横滚连杆 | 踝关节左右倾斜 |
+    | **left/right_shoulder_pitch_link**| 肩部俯仰连杆 | 肩膀前后摆动 |
+    | **left/right_shoulder_roll_link** | 肩部横滚连杆 | 肩膀左右摆动 |
+    | **left/right_shoulder_yaw_link** | 肩部偏航连杆 | 大臂旋转 |
+    | **left/right_elbow_link** | 肘部连杆 | 肘关节 |
+    | **left/right_wrist_roll_link** | 腕部横滚连杆 | 手腕旋转 |
+    | **left/right_wrist_pitch_link** | 腕部俯仰连杆 | 手腕上下摆动 |
+    | **left/right_wrist_yaw_link** | 腕部偏航连杆 | 手腕左右转动 |
+    | **left/right_rubber_hand** | 橡胶手 | 机器人的末端手部 (无手指版本) |
+    | **left/right_toe_link** |  脚尖连杆
 
 
+
+    
