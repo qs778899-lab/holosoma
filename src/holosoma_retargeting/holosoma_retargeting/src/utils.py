@@ -756,13 +756,16 @@ def estimate_human_orientation(human_joints, joint_names, frame_idx=0):
     from the pelvis (Hips) to the spine/chest, and the direction from left to right hip.
 
     Args:
-        human_joints (np.ndarray): Human joint positions with shape (frames, joints, 3)
+        human_joints (np.ndarray): Human joint positions with shape (frames, joints, 3 or 7)
         joint_names (list): List of joint names corresponding to the joint positions
         frame_idx (int): Frame index to estimate orientation from (default: 0)
 
     Returns:
         np.ndarray: Quaternion [w, x, y, z] representing the human's global orientation
     """
+    #! cube: Handle 7D data by slicing first 3 dimensions (positions)
+    if human_joints.shape[-1] == 7:
+        human_joints = human_joints[..., :3]
     # For LAFAN
     if "Hips" in joint_names:
         hips_idx = joint_names.index("Hips")

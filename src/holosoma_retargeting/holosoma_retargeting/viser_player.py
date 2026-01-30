@@ -162,7 +162,7 @@ def make_player(
         robot_root = server.scene.add_frame("/robot", show_axes=False)
         robot_urdf_y = yourdfpy.URDF.load(config.robot_urdf, load_meshes=True, build_scene_graph=True)
         vr = ViserUrdf(server, urdf_or_path=robot_urdf_y, root_node_name="/robot")
-        
+
         vo = None
         if config.object_urdf:
             object_root = server.scene.add_frame("/object", show_axes=False)
@@ -171,8 +171,7 @@ def make_player(
 
         server.scene.add_grid("/grid", width=config.grid_width, height=config.grid_height)
         robot_dof = len(vr.get_actuated_joint_limits())
-        
-        from holosoma_retargeting.src.viser_utils import create_motion_control_sliders
+
         create_motion_control_sliders(
             server=server,
             viser_robot=vr,

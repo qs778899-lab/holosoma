@@ -18,6 +18,8 @@ rm -rf ubisoft-laforge-animation-dataset
 
 重定向流水线需要世界坐标系下的关节点位置。
 
+cd holosoma/src/holosoma_retargeting/holosoma_retargeting
+
 ```bash
 conda activate hsretargeting
 python data_utils/extract_global_positions.py \
@@ -65,14 +67,15 @@ python examples/parallel_robot_retarget.py \
 python viser_player.py \
   --robot_urdf models/g1/g1_29dof.urdf \
   --qpos_npz snooker_results/snooker2_original.npz
-
+  
 python viser_player.py \
   --mjcf_path models/g1/scene_29dof_cue.xml \
   --qpos_npz snooker_results/snooker2_original.npz
 
-python viser_player.py \
-  --mjcf_path models/g1/scene_29dof_cue.xml \
-  --qpos_npz snooker_results0126/snooker2_original.npz
 
 ```
+
+python viser_player.py \
+  --mjcf_path models/g1/scene_29dof_cue.xml \
+  --qpos_npz snooker_results0128/snooker2_original.npz
 

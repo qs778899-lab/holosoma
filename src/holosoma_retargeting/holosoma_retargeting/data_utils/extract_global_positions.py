@@ -59,6 +59,7 @@ def extract_global_positions(bvh_file_path, target_joints=None):
     if target_joints:
         # Extract only target joints in the specified order
         extracted_positions = []
+        extracted_quats = [] #! cube: 新增旋转提取
         
         #! foot: Define offsets for Nokov End Sites (Toe) relative to Foot (Ankle)
         # Assuming offset is constant for Nokov skeleton: (0, -10, 15.12)
@@ -70,6 +71,7 @@ def extract_global_positions(bvh_file_path, target_joints=None):
             if joint in joint_names:
                 idx = joint_names.index(joint)
                 extracted_positions.append(positions[:, idx])
+                extracted_quats.append(global_quats[:, idx]) #! cube: 提取旋转 (w,x,y,z)
             elif joint == "LeftFootMod" and "LeftFoot" in joint_names:
                 # Special case for Nokov foot mod - compute Toe position
                 # BVH文件中没有LeftFootMod，这是我们为了约束脚尖而虚拟出来的关节
@@ -88,6 +90,7 @@ def extract_global_positions(bvh_file_path, target_joints=None):
                 # Add offset (scaled by 1/100 as positions are divided by 100)
                 toe_pos = foot_pos + (rotated_offset / 100.0)
                 extracted_positions.append(toe_pos)
+                extracted_quats.append(foot_quat) #! cube: 脚尖旋转暂用脚踝旋转
                 
                 
             elif joint == "RightFootMod" and "RightFoot" in joint_names:
@@ -108,51 +111,116 @@ def extract_global_positions(bvh_file_path, target_joints=None):
                 # Add offset (scaled by 1/100)
                 toe_pos = foot_pos + (rotated_offset / 100.0)
                 extracted_positions.append(toe_pos)
+                extracted_quats.append(foot_quat) #! cube: 脚尖旋转暂用脚踝旋转
             
-            # 处理左手架杆点：直接映射真人的左手全局位置
+            # 处理左手架杆点：考虑手部相对于手腕的偏移
             elif joint == "LeftHandBridge" and "LeftHand" in joint_names:
                 idx = joint_names.index("LeftHand")
-                extracted_positions.append(positions[:, idx])
-            # 处理右手握杆点：直接映射真人的右手全局位置
+                lh_pos = positions[:, idx]
+                lh_quat = global_quats[:, idx]
+                
+                # 1. 获取 parent (LeftHand) 的全局旋转矩阵
+                r_parent = R.from_quat(np.roll(lh_quat, -1, axis=1))
+                
+                # 2. XML: left_hand_bridge site pos="0.0415 0.003 0" quat="1 0 0 0" (Identity)
+                # 定义局部变换：平移 offset 和 旋转 r_local
+                offset = np.array([0.0415, 0.003, 0])
+                r_local = R.identity() #单位旋转矩阵
+                
+                # 3. 精确计算全局位置和旋转 (R_global = R_parent * R_local)
+                extracted_positions.append(lh_pos + r_parent.apply(offset))
+                r_global = r_parent * r_local
+                # 转回 wxyz 格式保存
+                q_wxyz = np.roll(r_global.as_quat(), 1, axis=-1)
+                extracted_quats.append(q_wxyz) #? 为什么是wxyz？
+
+            # 处理右手握杆点：考虑手部相对于手腕的偏移
             elif joint == "RightHandGrip" and "RightHand" in joint_names:
                 idx = joint_names.index("RightHand")
-                extracted_positions.append(positions[:, idx])
-            # 处理虚拟球杆尖端：通过真人左右手的位置“延长”出球杆末端
+                rh_pos = positions[:, idx]
+                rh_quat = global_quats[:, idx]
+                
+                # 1. 获取 parent (RightHand) 的全局旋转矩阵
+                r_parent = R.from_quat(np.roll(rh_quat, -1, axis=1))
+                
+                # 2. XML: right_hand_grip site pos="0.0415 -0.003 0" quat="1 0 0 0" (Identity)
+                offset = np.array([0.0415, -0.003, 0])
+                r_local = R.identity() #单位旋转矩阵
+                
+                # 3. 精确计算全局位置和旋转
+                extracted_positions.append(rh_pos + r_parent.apply(offset))
+                r_global = r_parent * r_local
+                q_wxyz = np.roll(r_global.as_quat(), 1, axis=-1)
+                extracted_quats.append(q_wxyz)
+
+            # 处理虚拟球杆尖端：从“球杆上的握持点”开始延伸
             elif joint == "CueTip" and "RightHand" in joint_names and "LeftHand" in joint_names:
-                # Calculate Cue Tip position: extend from RightHand through LeftHand
-                # 获取真人右手和左手在 BVH 中的索引
                 rh_idx = joint_names.index("RightHand")
                 lh_idx = joint_names.index("LeftHand")
-                # 提取所有帧的左右手世界坐标
-                rh_pos = positions[:, rh_idx]
-                lh_pos = positions[:, lh_idx]    
-                # 计算从右手指向左手的向量（即球杆的方向）
-                direction = lh_pos - rh_pos
-                dist = np.linalg.norm(direction, axis=-1, keepdims=True)
-                # Normalize direction
-                direction_norm = direction / (dist + 1e-8)
                 
-                # 优化方案：不再使用1.35m的总长。
-                # 我们定义尖端在左手(架杆点)前方 0.4 米处。
-                # 这样缩短了力臂，能显著减少重定向时机器人手腕的异常扭动。
-                cue_tip_pos = lh_pos + direction_norm * 0.4
+                # 1. 基础位姿提取
+                rh_pos = positions[:, rh_idx]
+                rh_quat = global_quats[:, rh_idx]
+                r_rh = R.from_quat(np.roll(rh_quat, -1, axis=1))
+                
+                # 2. 找到准确的握持参考点和桥手点 (基于 XML 偏移)
+                cue_grip_on_stick = rh_pos + r_rh.apply(np.array([0.1215, 0.017, 0.0]))
+                
+                lh_pos = positions[:, lh_idx]
+                lh_quat = global_quats[:, lh_idx]
+                r_lh = R.from_quat(np.roll(lh_quat, -1, axis=1))
+                bridge_pos = lh_pos + r_lh.apply(np.array([0.0415, 0.003, 0.0]))
+                
+                # 3. 计算方向向量并延伸 (从 cue_grip_on_stick 到桥手点)
+                direction = bridge_pos - cue_grip_on_stick
+                direction_norm = direction / (np.linalg.norm(direction, axis=-1, keepdims=True) + 1e-8)
+                
+                # 4. 根据 XML 计算固定杆尖位置
+                fixed_cue_length = 1.075
+                cue_tip_pos = cue_grip_on_stick + direction_norm * fixed_cue_length
                 extracted_positions.append(cue_tip_pos)
+                
+                # 5. 精确重构球杆的全局旋转矩阵 (Alignment Rotation)
+                # 原理：将局部 Z 轴对齐到瞄准方向，同时通过右手腕的 X 轴确定扭转(Roll)
+                z_axes = direction_norm
+                # 提取右手腕当前的全局 X 轴作为参考
+                rh_mats = r_rh.as_matrix()
+                x_refs = rh_mats[:, :, 0] 
+                
+                # Gram-Schmidt 正交化
+                y_axes = np.cross(z_axes, x_refs)
+                y_axes /= (np.linalg.norm(y_axes, axis=-1, keepdims=True) + 1e-8)
+                x_axes = np.cross(y_axes, z_axes)
+                
+                # 构造旋转矩阵 [x, y, z] 并转为四元数
+                cue_mats = np.stack([x_axes, y_axes, z_axes], axis=-1)
+                r_cue = R.from_matrix(cue_mats)
+                q_wxyz = np.roll(r_cue.as_quat(), 1, axis=-1)
+                extracted_quats.append(q_wxyz) #? 还未确认计算过程是否正确，但目前用不上
             else:
                 print(f"Warning: Joint {joint} not found in BVH. Using zeros.")
                 extracted_positions.append(np.zeros((positions.shape[0], 3)))
+                extracted_quats.append(np.array([1.0, 0.0, 0.0, 0.0] * positions.shape[0]).reshape(-1, 4))
 
         
         # extracted_positions： 存储了经过筛选、排序以及计算后的关节点全局坐标数据。
         positions = np.stack(extracted_positions, axis=1)
+        quats = np.stack(extracted_quats, axis=1) # (Frames, Joints, 4)
+        # 合并为 7D 数据 (pos, quat)
+        combined_data = np.concatenate([positions, quats], axis=-1) # (Frames, Joints, 7)
         joint_names = target_joints
+    else:
+        # 如果没有 target_joints，默认只保存 positions 以保持兼容
+        combined_data = positions
 
     return {
-        "positions": positions,
+        "combined_data": combined_data,
         "joint_names": joint_names,
         "parents": anim.parents, # Note: parents indices will be wrong if joints are reordered
         "num_frames": positions.shape[0],
         "num_joints": positions.shape[1],
     }
+
 
 
 def save_global_positions_to_npy(global_positions, output_path):
@@ -214,7 +282,7 @@ def main(cfg: Config):
 
         # Save to .npy file
         output_npy = output_dir / f"{bvh_file[:-4]}.npy"
-        np.save(str(output_npy), result["positions"])
+        np.save(str(output_npy), result["combined_data"])
         print(f"  Saved to: {output_npy}")
 
 

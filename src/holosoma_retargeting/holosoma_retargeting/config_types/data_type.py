@@ -230,7 +230,7 @@ SIK_BVH_JOINTS = [
 ]
 
 #! NOKOV_DEMO_JOINTS 定义了从 Nokov BVH 中提取的规范化关节集。
-# 这样做可以确保生成的 .npy 文件具有固定的关节顺序，并忽略 Nokov 中多余的手指或末端节点。
+#! cube: 增加三行
 NOKOV_DEMO_JOINTS = [
     "Hips",
     "RightUpLeg",
@@ -401,6 +401,7 @@ JOINTS_MAPPINGS = {
 
     #! Nokov 格式到 G1 机器人的关节映射，基于 GMR 的关节对应逻辑实现。
     #! foot: 增加两行
+    #! cube: 增加三行
     ("nokov", "g1"): {
         "Hips": "pelvis_contour_link",               # 髋部
         "LeftUpLeg": "left_hip_pitch_link",          # 左大腿
@@ -417,11 +418,18 @@ JOINTS_MAPPINGS = {
         "RightFootMod": "right_ankle_roll_sphere_5_link", # 右脚末端修正
         "LeftHand": "left_rubber_hand_link",         # 左手
         "RightHand": "right_rubber_hand_link",        # 右手
-        "CueTip": "cue_tip",
-        "LeftHandBridge": "left_hand_bridge",
-        "RightHandGrip": "right_hand_grip",
+        "CueTip": "right_wrist_yaw_link",             # 球杆末端（虚拟点，挂在右手腕）
+        "LeftHandBridge": "left_wrist_yaw_link",      # 左手架杆位（虚拟点，挂在左手腕）
+        "RightHandGrip": "right_wrist_yaw_link",      # 右手握杆位（虚拟点，挂在右手腕）
     },
 
+}
+
+#! cube: VIRTUAL_SITE_OFFSETS 定义了那些不在模型 XML 中定义、但在计算时需要的虚拟点相对于其父 Body 的局部偏移。
+VIRTUAL_SITE_OFFSETS = {
+    "LeftHandBridge": [0.0415, 0.003, 0.0], #? 这两个偏移量怎么理解？ xml文件的相同数值的偏移量又是什么含义？
+    "RightHandGrip": [0.0415, -0.003, 0.0],
+    "CueTip": [0.1215, 0.017, 1.075], # 基于球杆长度和相对于右手腕的安装位置计算得出
 }
 
 # Data format specific constants
