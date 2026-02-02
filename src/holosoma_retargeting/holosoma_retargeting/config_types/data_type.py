@@ -412,8 +412,10 @@ JOINTS_MAPPINGS = {
         "RightFoot": "right_ankle_intermediate_1_link", # 右脚踝
         "LeftFootMod": "left_ankle_roll_sphere_5_link", # 左脚末端修正
         "RightFootMod": "right_ankle_roll_sphere_5_link", # 右脚末端修正
-        "LeftHand": "left_rubber_hand_link",         # 左手
-        "RightHand": "right_rubber_hand_link",        # 右手
+        # "LeftHand": "left_rubber_hand_link",         
+        # "RightHand": "right_rubber_hand_link",       
+        "LeftHand": "left_wrist_yaw_link",        #! wrist
+        "RightHand": "right_wrist_yaw_link",      #! wrist
     },
 
 }

@@ -3,6 +3,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Annotated
+
+import tyro
+
+
+# 使用 FlagConversionOff 让 bool 参数接受显式的 True/False 值
+BoolWithExplicitValue = Annotated[bool, tyro.conf.FlagConversionOff]
 
 
 @dataclass(frozen=True)
@@ -49,3 +56,15 @@ class RetargeterConfig:
 
     snooker_frame_range: list[int] | None = None
     """[start_frame, end_frame] where snooker constraints are active."""
+
+    activate_snooker_tracking: BoolWithExplicitValue = False
+    """Whether to enable left wrist yaw tracking for snooker task."""
+
+    activate_snooker_laplacian: BoolWithExplicitValue = False
+    """Whether to add snooker virtual points (CueTip, LeftHandBridge, RightHandGrip) to Laplacian mesh."""
+
+    activate_realtime_rotation_tracking: BoolWithExplicitValue = False
+    """Whether to extract rotation from 7D data for nominal tracking (when no reference npz)."""
+
+    activate_general_nominal_tracking: BoolWithExplicitValue = False
+    """Whether to enable full-body nominal tracking (requires reference sequence)."""

@@ -534,6 +534,11 @@ def build_retargeter_kwargs_from_config(
         "debug": retargeter_config.debug,
         "w_nominal_tracking_init": retargeter_config.w_nominal_tracking_init,
         "snooker_frame_range": retargeter_config.snooker_frame_range,
+        # Snooker-specific parameters
+        "activate_snooker_tracking": retargeter_config.activate_snooker_tracking,
+        "activate_snooker_laplacian": retargeter_config.activate_snooker_laplacian,
+        "activate_realtime_rotation_tracking": retargeter_config.activate_realtime_rotation_tracking,
+        "activate_general_nominal_tracking": retargeter_config.activate_general_nominal_tracking,
     }
     if task_type == "climbing":
         kwargs["nominal_tracking_tau"] = retargeter_config.nominal_tracking_tau

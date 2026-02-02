@@ -47,6 +47,12 @@ class InteractionMeshRetargeter:
         self,
         task_constants: ModuleType,
         object_urdf_path: str,
+        # Snooker 相关参数（无默认值，必须显式传入）
+        activate_realtime_rotation_tracking: bool,  # 数据源开关：当输入只有.npy 文件，没有参考的*_original.npz文件时，从 7D 数据中实时抠出真人的手腕旋转，强行喂给解算器作为“唯一引导”。
+        activate_snooker_tracking: bool,  # 是否启用左手腕 Yaw Tracking
+        activate_general_nominal_tracking: bool,  # 是否进行全身关节角度追踪
+        activate_snooker_laplacian: bool,  # 是否添加 snooker 虚拟点到 Laplacian 网格
+        # 以下参数有默认值
         q_a_init_idx: int = -7,
         activate_foot_sticking: bool = True,
         activate_obj_non_penetration: bool = True,
@@ -59,11 +65,7 @@ class InteractionMeshRetargeter:
         debug: bool = False,
         w_nominal_tracking_init: float = 5.0,
         nominal_tracking_tau: float = 10.0,
-        snooker_frame_range: list[int] | None = None,
-        activate_realtime_rotation_tracking: bool = False, #数据源开关：当输入只有.npy 文件，没有参考的*_original.npz文件时，从 7D 数据中实时抠出真人的手腕旋转，强行喂给解算器作为“唯一引导”。
-        activate_snooker_tracking: bool = False, #为了实现您要求的“只追踪左手腕”，这个参数activate_snooker_tracking必须保持为True。
-        activate_general_nominal_tracking: bool = False, #决定是否进行除手腕以外的全身关节角度追踪。
-        activate_snooker_laplacian: bool = False, 
+        snooker_frame_range: list[int] | None = None, 
     ):
         """This kinematic retargeter solves the diffIK problem with hard constraints in SQP style.
         During each SQP iteration, the problem is solved with the following constraints and costs:
@@ -163,7 +165,9 @@ class InteractionMeshRetargeter:
         # Load Mujoco model
         if self.object_name == "ground":
             robot_xml_path = self.robot_model_path.replace(".urdf", ".xml")
-        elif self.object_name == "multi_boxes":
+        #! scene
+        elif hasattr(self.task_constants, 'SCENE_XML_FILE') and self.task_constants.SCENE_XML_FILE:
+            # Use SCENE_XML_FILE if set (for climbing tasks with custom objects like multi_boxes, snooker_table, etc.)
             robot_xml_path = self.task_constants.SCENE_XML_FILE
         else:
             robot_xml_path = self.robot_model_path.replace(".urdf", "_w_" + self.object_name + ".xml")
@@ -588,36 +592,64 @@ class InteractionMeshRetargeter:
                 curr_q_a_nominal = None
                 is_full_nominal = False # 标记是否是完整的参考序列
 
-                if q_nominal_list is None:
-                    print("q_nominal_list is None")
+                
                 
                 if q_nominal_list is not None: #q_nominal_list只会从*_original.npz文件中获取，并不会从输入的npy文件中获取； 而且q_nominal_list存储的是每个关节的旋转角度。
                     curr_q_a_nominal = q_nominal_list[i, self.q_a_indices]
                     is_full_nominal = True
-                elif has_rot_data and self.activate_realtime_rotation_tracking: #has_rot_data为True，表示输入数据包含旋转信息，即输入数据是7D而不是3D
-                    pass
-                    # # 当输入只有.npy 文件，没有参考的*_original.npz文件时，从 7D 数据中实时抠出真人的手腕旋转，强行喂给解算器作为"唯一引导"
-                    # curr_q_a_nominal = np.zeros(self.nq_a)  #? 所有关节角度设为0, 这个是错误的。
+                #! wrist: [DEPRECATED] 原方案 - 构造局部关节角度目标（已被全局旋转 tracking 替代）
+                # elif has_rot_data and self.activate_snooker_tracking:
+                #     #! wrist: 从 7D 数据中实时提取人类左手旋转，映射到机器人左手腕
+                #     # 注意：这里只设置左手腕的目标值，其他关节保持 None（不会被追踪）
+                #     lw_yaw_idx_global = 28  # G1 左手腕 Yaw 关节的全局索引
+                #     if lw_yaw_idx_global in self.q_a_indices and "LeftHand" in self.demo_joints:
+                #         # 构造一个只包含左手腕目标的数组
+                #         curr_q_a_nominal = np.zeros(self.nq_a)
+                #         
+                #         # BUG FIX: 从 demo_joints 中找到 LeftHand 的索引（对应 human_quat_full 的第二维）
+                #         lh_idx_in_demo = self.demo_joints.index("LeftHand")
+                #         lh_quat_wxyz = human_quat_full[i, lh_idx_in_demo]  # (w, x, y, z)
+                #         
+                #         # 将四元数转为欧拉角（scipy 用 xyzw 顺序）
+                #         r_lh = Rotation.from_quat([lh_quat_wxyz[1], lh_quat_wxyz[2], lh_quat_wxyz[3], lh_quat_wxyz[0]])
+                #         lh_euler = r_lh.as_euler('xyz')  # [roll, pitch, yaw]
+                #         
+                #         # 将人类 LeftHand 的 yaw 分量映射到机器人左手腕 Yaw 关节
+                #         lw_local_idx = np.where(self.q_a_indices == lw_yaw_idx_global)[0][0]
+                #         curr_q_a_nominal[lw_local_idx] = lh_euler[2]  # yaw 角度
+                #         
+                #         if i == 0:
+                #             debug_msg = (
+                #                 f"\n=== [Snooker Tracking Data Extraction - Frame {i}] ===\n"
+                #                 f"  demo_joints: {self.demo_joints}\n"
+                #                 f"  LeftHand idx in demo_joints: {lh_idx_in_demo}\n"
+                #                 f"  human_quat_full shape: {human_quat_full.shape}\n"
+                #                 f"  LeftHand quat (wxyz): {lh_quat_wxyz}\n"
+                #                 f"  LeftHand euler (xyz, deg): roll={np.rad2deg(lh_euler[0]):.2f}, pitch={np.rad2deg(lh_euler[1]):.2f}, yaw={np.rad2deg(lh_euler[2]):.2f}\n"
+                #                 f"  lw_local_idx in q_a: {lw_local_idx}\n"
+                #                 f"  curr_q_a_nominal[lw_local_idx]: {curr_q_a_nominal[lw_local_idx]:.6f} rad = {np.rad2deg(curr_q_a_nominal[lw_local_idx]):.2f} deg\n"
+                #             )
+                #             print(debug_msg)
+                #             with open(self.log_path, "a") as f:
+                #                 f.write(debug_msg)
 
-                    # # 针对 Snooker 任务：提取左手的全局旋转信息，映射到机器人左手腕 Yaw 关节 (全局索引28)
-                    # if "LeftHand" in self.laplacian_match_links:  # 确保LeftHand关节在当前的匹配链接配置中
-                    #     all_link_keys = list(self.laplacian_match_links.keys())  # 获取所有匹配链接的关节名称列表
-                    #     lh_idx_in_mapped = all_link_keys.index("LeftHand")  # 在匹配列表中找到LeftHand关节的索引位置
-                    #     lh_quat_wxyz = human_quat_full[i, lh_idx_in_mapped]  # 从当前帧的7D数据中提取LeftHand的四元数[w,x,y,z]
+                #安全检查 - 确保不会误用错误的 nominal tracking
+                # 当 q_nominal_list 为 None 时，curr_q_a_nominal 应该保持为 None
+                # 旧方案（局部关节角度 tracking）已被注释，全局旋转 tracking 使用 target_lh_quat 而非 curr_q_a_nominal
+                if i == 0:
+                    if q_nominal_list is None:
+                        print("[Info] q_nominal_list is None - 使用全局旋转 tracking（不使用 curr_q_a_nominal）")
+                    if curr_q_a_nominal is not None and not is_full_nominal:
+                        # 这种情况不应该发生（旧方案已被注释），如果发生则警告
+                        print("[警示] curr_q_a_nominal 被设置但不是完整参考序列，可能存在逻辑错误！")
+                        with open(self.log_path, "a") as f:
+                            f.write(f"[WARNING Frame {i}] curr_q_a_nominal 被设置但 is_full_nominal=False\n")
 
-                    #     # 将四元数从wxyz顺序转换为scipy的xyzw顺序，然后创建Rotation对象进行后续处理
-                    #     r_lh = Rotation.from_quat([lh_quat_wxyz[1], lh_quat_wxyz[2], lh_quat_wxyz[3], lh_quat_wxyz[0]])
-
-                    #     # 将Rotation对象转换为xyz顺序的欧拉角，便于提取特定的旋转分量作为目标角度
-                    #     lh_euler = r_lh.as_euler('xyz')  # 返回[rx, ry, rz]，其中rz是yaw角
-
-                    #     # 将人类LeftHand的Yaw分量映射到机器人左手腕Yaw关节，作为名义跟踪目标
-                    #     lw_yaw_idx_global = 28  # G1机器人模型中左腕Yaw关节的全局关节索引
-                    #     if lw_yaw_idx_global in self.q_a_indices:  # 确保该关节在优化变量范围内
-                    #         lw_local_idx = np.where(self.q_a_indices == lw_yaw_idx_global)[0][0]  # 找到该关节在优化变量数组中的局部索引
-                    #         curr_q_a_nominal[lw_local_idx] = lh_euler[2]  # 将人类手的yaw角度赋值给机器人的名义关节角度数组
-
-                    
+                #! wrist: 提取人类 LeftHand 的全局四元数用于全局旋转 tracking
+                target_lh_quat = None
+                if has_rot_data and self.activate_snooker_tracking and "LeftHand" in self.demo_joints:
+                    lh_idx_in_demo = self.demo_joints.index("LeftHand")
+                    target_lh_quat = human_quat_full[i, lh_idx_in_demo]  # (w, x, y, z) 全局四元数
 
                 q, cost = self.iterate(
                     q_locked=q_locked_list[i],
@@ -633,6 +665,7 @@ class InteractionMeshRetargeter:
                     n_iter=50 if i == 0 else 10,
                     frame_idx=i,
                     is_full_nominal=is_full_nominal, #! cube: 传递标记位
+                    target_lh_quat=target_lh_quat, #! wrist: 传递目标全局四元数
                 )
                 if self.debug:
                     robot_link_positions = self._get_robot_link_positions(
@@ -726,6 +759,7 @@ class InteractionMeshRetargeter:
         init_t=False,
         frame_idx: int = 0,
         is_full_nominal: bool = False,
+        target_lh_quat: np.ndarray | None = None,  #! wrist: 新增 - 目标全局四元数 (wxyz)
     ):
         """The main function to solve a single iteration of the DiffIK problem.
         Args:
@@ -917,14 +951,104 @@ class InteractionMeshRetargeter:
         obj_terms = []
         obj_names = [] # 新增：用于记录各分量名称
 
-        #! cube: Snooker-specific: 动态引导左手手腕姿态（Nominal Tracking）
-        if self.activate_snooker_tracking and snooker_alpha > 0 and q_a_nominal is not None:
-            lw_idx = 28
-            lw_tracking_weight = 5.0 * snooker_alpha
-            error = dqa[lw_idx] - (q_a_nominal[lw_idx] - q_a_n_last[lw_idx])
-            term = lw_tracking_weight * cp.sum_squares(error)
-            obj_terms.append(term)
-            obj_names.append("snooker_tracking")
+        #! wrist: [DEPRECATED] 原方案 - 追踪局部关节角度（已被全局旋转 tracking 替代）
+        # 问题：直接把人类全局 yaw 赋给机器人局部 yaw 是错误的映射
+        # 现在由下方的 global_rotation_tracking 替代
+        # snooker_tracking_added = False
+        # if self.activate_snooker_tracking and snooker_alpha > 0 and q_a_nominal is not None:
+        #     lw_yaw_idx_global = 28  # G1 左手腕 Yaw 的全局关节索引
+        #     if lw_yaw_idx_global in self.q_a_indices:
+        #         # 将全局索引转换为优化变量数组中的局部索引
+        #         lw_local_idx = np.where(self.q_a_indices == lw_yaw_idx_global)[0][0]
+        #         lw_tracking_weight = 5.0 * snooker_alpha
+        #         
+        #         target_val = q_a_nominal[lw_local_idx]
+        #         curr_val = q_a_n_last[lw_local_idx]
+        #         delta = target_val - curr_val
+        #         
+        #         # 目标：让 dqa 驱动关节角逼近 q_a_nominal 中的目标值
+        #         error = dqa[lw_local_idx] - delta
+        #         term = lw_tracking_weight * cp.sum_squares(error)
+        #         obj_terms.append(term)
+        #         obj_names.append("snooker_tracking")
+        #         snooker_tracking_added = True
+        #         
+        #         # 详细调试信息写入日志
+        #         if (frame_idx == 0) or (self.debug and frame_idx % 100 == 0):
+        #             debug_msg = (
+        #                 f"\n=== [Snooker Tracking Debug - Frame {frame_idx}] ===\n"
+        #                 f"  snooker_alpha: {snooker_alpha:.4f}\n"
+        #                 f"  lw_local_idx: {lw_local_idx}\n"
+        #                 f"  lw_tracking_weight: {lw_tracking_weight:.4f}\n"
+        #                 f"  q_a_nominal[lw_local_idx] (target): {target_val:.6f} rad = {np.rad2deg(target_val):.2f} deg\n"
+        #                 f"  q_a_n_last[lw_local_idx] (current): {curr_val:.6f} rad = {np.rad2deg(curr_val):.2f} deg\n"
+        #                 f"  delta (target - current): {delta:.6f} rad = {np.rad2deg(delta):.2f} deg\n"
+        #                 f"  expected tracking cost: {lw_tracking_weight * delta**2:.6f}\n"
+        #             )
+        #             print(debug_msg)
+        #             with open(self.log_path, "a") as f:
+        #                 f.write(debug_msg)
+        # 
+        # # 如果 tracking 没有被添加，记录原因
+        # if (frame_idx == 0) and not snooker_tracking_added:
+        #     reason = []
+        #     if not self.activate_snooker_tracking:
+        #         reason.append("activate_snooker_tracking=False")
+        #     if snooker_alpha <= 0:
+        #         reason.append(f"snooker_alpha={snooker_alpha}<=0")
+        #     if q_a_nominal is None:
+        #         reason.append("q_a_nominal is None")
+        #     debug_msg = f"\n[Frame {frame_idx}] Snooker tracking NOT added. Reasons: {', '.join(reason)}\n"
+        #     print(debug_msg)
+        #     with open(self.log_path, "a") as f:
+        #         f.write(debug_msg)
+
+        #! wrist:
+        # 使用旋转雅可比匹配机器人 left_wrist_yaw_link 的全局旋转到人类 LeftHand 的全局旋转
+        global_rotation_tracking_added = False
+        if self.activate_snooker_tracking and snooker_alpha > 0 and target_lh_quat is not None:
+            try:
+                # 计算旋转雅可比和误差
+                J_rot, rot_error, current_quat = self._calc_rotation_jacobian_and_error(
+                    q, "left_wrist_yaw_link", target_lh_quat
+                )
+                
+                # 线性化：rot_error_new ≈ rot_error - J_rot @ dqa
+                # Cost: ||rot_error - J_rot @ dqa||^2
+                # 最小化 dqa 使旋转误差趋近于 0
+                rotation_tracking_weight = 10.0 * snooker_alpha
+                
+                # CVXPY: minimize || rot_error - J_rot @ dqa ||^2
+                rot_cost = rotation_tracking_weight * cp.sum_squares(
+                    cp.Constant(rot_error) - cp.Constant(J_rot) @ dqa
+                )
+                obj_terms.append(rot_cost)
+                obj_names.append("global_rotation_tracking")
+                global_rotation_tracking_added = True
+                
+                # 详细调试信息
+                if (frame_idx == 0) or (self.debug and frame_idx % 100 == 0):
+                    rot_error_deg = np.rad2deg(np.linalg.norm(rot_error))
+                    debug_msg = (
+                        f"\n=== [Global Rotation Tracking - Frame {frame_idx}] ===\n"
+                        f"  snooker_alpha: {snooker_alpha:.4f}\n"
+                        f"  rotation_tracking_weight: {rotation_tracking_weight:.4f}\n"
+                        f"  target_quat (wxyz): [{target_lh_quat[0]:.4f}, {target_lh_quat[1]:.4f}, {target_lh_quat[2]:.4f}, {target_lh_quat[3]:.4f}]\n"
+                        f"  current_quat (wxyz): [{current_quat[0]:.4f}, {current_quat[1]:.4f}, {current_quat[2]:.4f}, {current_quat[3]:.4f}]\n"
+                        f"  rot_error (rotvec): [{rot_error[0]:.4f}, {rot_error[1]:.4f}, {rot_error[2]:.4f}]\n"
+                        f"  rot_error magnitude: {rot_error_deg:.2f} deg\n"
+                        f"  J_rot shape: {J_rot.shape}\n"
+                        f"  expected rotation cost: {rotation_tracking_weight * np.sum(rot_error**2):.6f}\n"
+                    )
+                    print(debug_msg)
+                    with open(self.log_path, "a") as f:
+                        f.write(debug_msg)
+                        
+            except Exception as e:
+                if frame_idx == 0:
+                    print(f"[WARNING] Global rotation tracking failed: {e}")
+                    with open(self.log_path, "a") as f:
+                        f.write(f"\n[WARNING Frame {frame_idx}] Global rotation tracking failed: {e}\n")
 
         lap_term = cp.sum_squares(cp.multiply(sqrt_w3, lap_var - target_lap_vec))
         obj_terms.append(lap_term)
@@ -1005,6 +1129,7 @@ class InteractionMeshRetargeter:
         n_iter: int = 10,
         frame_idx: int = 0,
         is_full_nominal: bool = False,
+        target_lh_quat: np.ndarray | None = None,  #! wrist: 新增 - 目标全局四元数
     ):
         """Iterate the solver for multiple iterations."""
         last_cost = np.inf
@@ -1023,6 +1148,7 @@ class InteractionMeshRetargeter:
                 init_t=init_t,
                 frame_idx=frame_idx,
                 is_full_nominal=is_full_nominal,
+                target_lh_quat=target_lh_quat,  #! wrist: 新增 - 传递目标全局四元数
             )
             if np.isclose(cost, last_cost):
                 break
@@ -1402,6 +1528,75 @@ class InteractionMeshRetargeter:
 
         return Jp @ T
 
+    #! wrist
+    def _calc_rotation_jacobian_and_error(
+        self,
+        q: np.ndarray,
+        link_name: str,
+        target_quat_wxyz: np.ndarray,
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """
+        计算机器人 link 的旋转雅可比和与目标旋转的误差。
+        
+        这是一个模块化的新增函数，用于支持全局旋转 tracking。
+        
+        Args:
+            q: 当前机器人配置 (nq,)
+            link_name: 目标 link 名称 (e.g., "left_wrist_yaw_link")
+            target_quat_wxyz: 目标全局旋转四元数 [w, x, y, z]
+        
+        Returns:
+            J_rot: (3, nq_a) 旋转雅可比矩阵（将 dqa 映射到角速度）
+            rot_error: (3,) 旋转误差向量（轴角/旋转向量表示）
+            current_quat_wxyz: (4,) 当前全局四元数 [w, x, y, z]，用于调试
+        """
+        # 1. 更新正向运动学
+        self.robot_data.qpos[:] = q
+        mujoco.mj_forward(self.robot_model, self.robot_data)
+        
+        # 2. 获取 body id 和当前全局旋转
+        body_id = mujoco.mj_name2id(self.robot_model, mujoco.mjtObj.mjOBJ_BODY, link_name)
+        if body_id == -1:
+            raise ValueError(f"Body '{link_name}' not found in MuJoCo model")
+        
+        current_rot_mat = self.robot_data.xmat[body_id].reshape(3, 3)
+        pos = self.robot_data.xpos[body_id]
+        
+        # 3. 计算旋转雅可比（使用 mj_jac 获取 Jr）
+        Jp = np.zeros((3, self.robot_model.nv), dtype=np.float64, order="C")
+        Jr = np.zeros((3, self.robot_model.nv), dtype=np.float64, order="C")  # 旋转雅可比
+        mujoco.mj_jac(self.robot_model, self.robot_data, Jp, Jr, pos.reshape(3, 1), body_id)
+        
+        # 4. 转换到 qpos 空间（使用 T 矩阵）
+        T = self._build_transform_qdot_to_qvel_fast()
+        J_rot_full = Jr @ T  # (3, nq)
+        J_rot = J_rot_full[:, self.q_a_indices]  # (3, nq_a)
+        
+        # 5. 计算旋转误差
+        # 目标旋转 (从 wxyz 转为 scipy 的 xyzw)
+        target_rot = Rotation.from_quat([
+            target_quat_wxyz[1], target_quat_wxyz[2], 
+            target_quat_wxyz[3], target_quat_wxyz[0]
+        ])
+        # 当前旋转
+        current_rot = Rotation.from_matrix(current_rot_mat)
+        
+        # 误差 = target * current^(-1)，表示从当前到目标需要的旋转
+        rot_error_obj = target_rot * current_rot.inv()
+        
+        # 转为轴角表示，取旋转向量作为误差 (方向 = 旋转轴, 模长 = 旋转角度 rad)
+        rot_error = rot_error_obj.as_rotvec()  # (3,)
+        
+        # 返回当前四元数用于调试 (转回 wxyz)
+        current_quat_xyzw = current_rot.as_quat()  # scipy 返回 xyzw
+        current_quat_wxyz = np.array([
+            current_quat_xyzw[3], current_quat_xyzw[0], 
+            current_quat_xyzw[1], current_quat_xyzw[2]
+        ])
+        
+        return J_rot, rot_error, current_quat_wxyz
+
+    
     def _calc_manipulator_jacobians(
         self,
         q: np.ndarray,
