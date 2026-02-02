@@ -418,9 +418,9 @@ JOINTS_MAPPINGS = {
         "RightFootMod": "right_ankle_roll_sphere_5_link", # 右脚末端修正
         "LeftHand": "left_rubber_hand_link",         # 左手
         "RightHand": "right_rubber_hand_link",        # 右手
-        "CueTip": "right_wrist_yaw_link",             # 球杆末端（虚拟点，挂在右手腕）
-        "LeftHandBridge": "left_wrist_yaw_link",      # 左手架杆位（虚拟点，挂在左手腕）
-        "RightHandGrip": "right_wrist_yaw_link",      # 右手握杆位（虚拟点，挂在右手腕）
+        "CueTip": "right_wrist_yaw_link",             # 球杆末端（虚拟点，暂时挂在右手腕，后面会有偏移量计算）
+        "LeftHandBridge": "left_wrist_yaw_link",      # 左手架杆位（虚拟点，暂时挂在左手腕，后面会有偏移量计算）
+        "RightHandGrip": "right_wrist_yaw_link",      # 右手握杆位（虚拟点，暂时挂在右手腕，后面会有偏移量计算）
     },
 
 }
