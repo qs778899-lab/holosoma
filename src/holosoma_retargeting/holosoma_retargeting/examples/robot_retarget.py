@@ -15,6 +15,7 @@ from types import SimpleNamespace
 from typing import Literal
 
 import numpy as np
+from scipy.spatial.transform import Rotation as R
 import tyro
 
 src_root = Path(__file__).resolve().parents[2]
@@ -230,11 +231,26 @@ def load_motion_data(
                 raise FileNotFoundError(f"NOKOV data file not found: {npy_path}")
 
             human_joints = np.load(str(npy_path))
-            
+
             # Use GMR-style transformation for Nokov: [x, y, z] -> [x, -z, y]
             # This handles the forward direction correctly for Nokov BVH
             rot_matrix = np.array([[1, 0, 0], [0, 0, -1], [0, 1, 0]])
-            human_joints = (rot_matrix @ human_joints.reshape(-1, 3).T).T.reshape(human_joints.shape)
+
+            #! cube: 适配 7D 数据 (pos + quat)
+            if human_joints.shape[-1] == 7:
+                # 7D: (pos, quat[w,x,y,z]) -> rotate both position and orientation
+                human_pos = human_joints[..., :3]
+                human_quat = human_joints[..., 3:]
+
+                human_pos = (rot_matrix @ human_pos.reshape(-1, 3).T).T.reshape(human_pos.shape)
+
+                rot = R.from_matrix(rot_matrix)
+                quat_rot = R.from_quat(human_quat.reshape(-1, 4), scalar_first=True)
+                human_quat = (rot * quat_rot).as_quat(scalar_first=True).reshape(human_quat.shape)
+
+                human_joints = np.concatenate([human_pos, human_quat], axis=-1)
+            else:
+                human_joints = (rot_matrix @ human_joints.reshape(-1, 3).T).T.reshape(human_joints.shape)
             
             # Calculate scale based on human height if not provided
             if motion_data_config.default_scale_factor:

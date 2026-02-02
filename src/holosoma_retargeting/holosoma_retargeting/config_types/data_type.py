@@ -167,67 +167,67 @@ SMPLX_DEMO_JOINTS = [
     "R_Wrist",
 ]
 
-SIK_BVH_JOINTS = [
-    "Hips",
-    "RightUpLeg",
-    "RightLeg",
-    "RightFoot",
-    "LeftUpLeg",
-    "LeftLeg",
-    "LeftFoot",
-    "Spine",
-    "Spine1",
-    "Spine2",
-    "Neck",
-    "Neck1",
-    "Head",
-    "RightShoulder",
-    "RightArm",
-    "RightForeArm",
-    "RightHand",
-    "RightHandThumb1",
-    "RightHandThumb2",
-    "RightHandThumb3",
-    "RightHandIndex",
-    "RightHandIndex1",
-    "RightHandIndex2",
-    "RightHandIndex3",
-    "RightHandMiddle",
-    "RightHandMiddle1",
-    "RightHandMiddle2",
-    "RightHandMiddle3",
-    "RightHandRing",
-    "RightHandRing1",
-    "RightHandRing2",
-    "RightHandRing3",
-    "RightHandPinky",
-    "RightHandPinky1",
-    "RightHandPinky2",
-    "RightHandPinky3",
-    "LeftShoulder",
-    "LeftArm",
-    "LeftForeArm",
-    "LeftHand",
-    "LeftHandThumb1",
-    "LeftHandThumb2",
-    "LeftHandThumb3",
-    "LeftHandIndex",
-    "LeftHandIndex1",
-    "LeftHandIndex2",
-    "LeftHandIndex3",
-    "LeftHandMiddle",
-    "LeftHandMiddle1",
-    "LeftHandMiddle2",
-    "LeftHandMiddle3",
-    "LeftHandRing",
-    "LeftHandRing1",
-    "LeftHandRing2",
-    "LeftHandRing3",
-    "LeftHandPinky",
-    "LeftHandPinky1",
-    "LeftHandPinky2",
-    "LeftHandPinky3",
-]
+# SIK_BVH_JOINTS = [
+#     "Hips",
+#     "RightUpLeg",
+#     "RightLeg",
+#     "RightFoot",
+#     "LeftUpLeg",
+#     "LeftLeg",
+#     "LeftFoot",
+#     "Spine",
+#     "Spine1",
+#     "Spine2",
+#     "Neck",
+#     "Neck1",
+#     "Head",
+#     "RightShoulder",
+#     "RightArm",
+#     "RightForeArm",
+#     "RightHand",
+#     "RightHandThumb1",
+#     "RightHandThumb2",
+#     "RightHandThumb3",
+#     "RightHandIndex",
+#     "RightHandIndex1",
+#     "RightHandIndex2",
+#     "RightHandIndex3",
+#     "RightHandMiddle",
+#     "RightHandMiddle1",
+#     "RightHandMiddle2",
+#     "RightHandMiddle3",
+#     "RightHandRing",
+#     "RightHandRing1",
+#     "RightHandRing2",
+#     "RightHandRing3",
+#     "RightHandPinky",
+#     "RightHandPinky1",
+#     "RightHandPinky2",
+#     "RightHandPinky3",
+#     "LeftShoulder",
+#     "LeftArm",
+#     "LeftForeArm",
+#     "LeftHand",
+#     "LeftHandThumb1",
+#     "LeftHandThumb2",
+#     "LeftHandThumb3",
+#     "LeftHandIndex",
+#     "LeftHandIndex1",
+#     "LeftHandIndex2",
+#     "LeftHandIndex3",
+#     "LeftHandMiddle",
+#     "LeftHandMiddle1",
+#     "LeftHandMiddle2",
+#     "LeftHandMiddle3",
+#     "LeftHandRing",
+#     "LeftHandRing1",
+#     "LeftHandRing2",
+#     "LeftHandRing3",
+#     "LeftHandPinky",
+#     "LeftHandPinky1",
+#     "LeftHandPinky2",
+#     "LeftHandPinky3",
+# ]
 
 #! NOKOV_DEMO_JOINTS 定义了从 Nokov BVH 中提取的规范化关节集。
 #! cube: 增加三行
@@ -255,28 +255,25 @@ NOKOV_DEMO_JOINTS = [
     "LeftHand",
     "LeftFootMod",
     "RightFootMod",
-    "CueTip",
-    "LeftHandBridge",
-    "RightHandGrip",
 ]
 
 # Joint mappings - organized by (data_format, robot_type)
 JOINTS_MAPPINGS = {
-    ("sik_bvh", "g1"): {
-        "Spine1": "pelvis_contour_link",
-        "LeftUpLeg": "left_hip_pitch_link",
-        "RightUpLeg": "right_hip_pitch_link",
-        "LeftLeg": "left_knee_link",
-        "RightLeg": "right_knee_link",
-        "LeftArm": "left_shoulder_roll_link",
-        "RightArm": "right_shoulder_roll_link",
-        "LeftForeArm": "left_elbow_link",
-        "RightForeArm": "right_elbow_link",
-        "LeftFoot": "left_ankle_intermediate_1_link", #? 这个对应名称对吗？
-        "RightFoot": "right_ankle_intermediate_1_link",
-        "LeftHand": "left_rubber_hand_link",
-        "RightHand": "right_rubber_hand_link",
-    },
+    # ("sik_bvh", "g1"): {
+    #     "Spine1": "pelvis_contour_link",
+    #     "LeftUpLeg": "left_hip_pitch_link",
+    #     "RightUpLeg": "right_hip_pitch_link",
+    #     "LeftLeg": "left_knee_link",
+    #     "RightLeg": "right_knee_link",
+    #     "LeftArm": "left_shoulder_roll_link",
+    #     "RightArm": "right_shoulder_roll_link",
+    #     "LeftForeArm": "left_elbow_link",
+    #     "RightForeArm": "right_elbow_link",
+    #     "LeftFoot": "left_ankle_intermediate_1_link", #? 这个对应名称对吗？
+    #     "RightFoot": "right_ankle_intermediate_1_link",
+    #     "LeftHand": "left_rubber_hand_link",
+    #     "RightHand": "right_rubber_hand_link",
+    # },
 
 
     ("lafan", "g1"): {
@@ -401,7 +398,6 @@ JOINTS_MAPPINGS = {
 
     #! Nokov 格式到 G1 机器人的关节映射，基于 GMR 的关节对应逻辑实现。
     #! foot: 增加两行
-    #! cube: 增加三行
     ("nokov", "g1"): {
         "Hips": "pelvis_contour_link",               # 髋部
         "LeftUpLeg": "left_hip_pitch_link",          # 左大腿
@@ -418,23 +414,13 @@ JOINTS_MAPPINGS = {
         "RightFootMod": "right_ankle_roll_sphere_5_link", # 右脚末端修正
         "LeftHand": "left_rubber_hand_link",         # 左手
         "RightHand": "right_rubber_hand_link",        # 右手
-        "CueTip": "right_wrist_yaw_link",             # 球杆末端（虚拟点，暂时挂在右手腕，后面会有偏移量计算）
-        "LeftHandBridge": "left_wrist_yaw_link",      # 左手架杆位（虚拟点，暂时挂在左手腕，后面会有偏移量计算）
-        "RightHandGrip": "right_wrist_yaw_link",      # 右手握杆位（虚拟点，暂时挂在右手腕，后面会有偏移量计算）
     },
 
 }
 
-#! cube: VIRTUAL_SITE_OFFSETS 定义了那些不在模型 XML 中定义、但在计算时需要的虚拟点相对于其父 Body 的局部偏移。
-VIRTUAL_SITE_OFFSETS = {
-    "LeftHandBridge": [0.0415, 0.003, 0.0], #? 这两个偏移量怎么理解？ xml文件的相同数值的偏移量又是什么含义？
-    "RightHandGrip": [0.0415, -0.003, 0.0],
-    "CueTip": [0.1215, 0.017, 1.075], # 基于球杆长度和相对于右手腕的安装位置计算得出
-}
-
 # Data format specific constants
 TOE_NAMES_BY_FORMAT = {
-    "sik_bvh": ["LeftFoot", "RightFoot"], #?
+    # "sik_bvh": ["LeftFoot", "RightFoot"], 
     # "nokov": ["LeftFoot", "RightFoot"], #! foot
     "nokov": ["LeftFootMod", "RightFootMod"], #! foot
     "lafan": ["LeftToeBase", "RightToeBase"],
@@ -455,7 +441,7 @@ DATA_FORMAT_CONSTANTS: dict[str, FormatConstants] = {
         "default_scale_factor": 1.27 / 1.7, #?
     },
     "nokov": {
-        "default_scale_factor": 1.27 / 1.7, #?
+        "default_scale_factor": 1.27 / 1.7, #? (影响人体关节位置的缩放)
     },
     "lafan": {
         "default_scale_factor": 1.27 / 1.7,
@@ -469,7 +455,7 @@ DATA_FORMAT_CONSTANTS: dict[str, FormatConstants] = {
 # This is the SINGLE PLACE to add new formats - just add an entry here!
 # No need to update any Literal types - DataFormat is now str with runtime validation
 DEMO_JOINTS_REGISTRY: dict[str, list[str]] = {
-    "sik_bvh": SIK_BVH_JOINTS,
+    # "sik_bvh": SIK_BVH_JOINTS,
     "nokov": NOKOV_DEMO_JOINTS,
     "lafan": LAFAN_DEMO_JOINTS,
     "smplh": SMPLH_DEMO_JOINTS,

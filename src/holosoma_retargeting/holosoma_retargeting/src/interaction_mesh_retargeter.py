@@ -100,8 +100,29 @@ class InteractionMeshRetargeter:
         self.visualize = visualize
         self.debug = debug
         self.demo_joints = task_constants.DEMO_JOINTS
-        self.laplacian_match_links = task_constants.JOINTS_MAPPING
         self.task_constants = task_constants
+
+        # 基础 Laplacian 映射来自配置（不包含 snooker 虚拟点）
+        self.base_laplacian_match_links = task_constants.JOINTS_MAPPING
+        self.base_link_keys = list(self.base_laplacian_match_links.keys())
+        self.base_key_to_idx = {k: i for i, k in enumerate(self.base_link_keys)}
+
+        # Snooker 虚拟点仅在本文件内定义，避免污染 data_type
+        self.snooker_virtual_links = {
+            "LeftHandBridge": "left_wrist_yaw_link",
+            "RightHandGrip": "right_wrist_yaw_link",
+            "CueTip": "right_wrist_yaw_link",
+        }
+        self.virtual_site_offsets = {
+            "LeftHandBridge": np.array([0.0415, 0.003, 0.0], dtype=float),
+            "RightHandGrip": np.array([0.0415, -0.003, 0.0], dtype=float),
+            "CueTip": np.array([0.1215, 0.017, 1.075], dtype=float),
+        }
+        self.snooker_cue_grip_offset = np.array([0.1215, 0.017, 0.0], dtype=float)
+        self.snooker_cue_length = 1.075
+
+        # 保持旧变量名用于兼容其他逻辑（仅含基础映射）
+        self.laplacian_match_links = self.base_laplacian_match_links
 
         self.snooker_frame_range = snooker_frame_range
         self.snooker_ramp_frames = 45  # 过渡帧数增加到 45 帧（约 1.5 秒），使切换更缓慢平滑
@@ -124,7 +145,10 @@ class InteractionMeshRetargeter:
             f.write(f"- activate_realtime_rotation_tracking: {self.activate_realtime_rotation_tracking}\n")
             f.write(f"- activate_general_nominal_tracking: {self.activate_general_nominal_tracking}\n\n")
 
-        self.smplh_mapped_joint_indices = [self.demo_joints.index(name) for name in self.laplacian_match_links]
+        self.smplh_mapped_joint_indices = [self.demo_joints.index(name) for name in self.base_link_keys]
+        self.left_hand_idx = self.demo_joints.index("LeftHand") if "LeftHand" in self.demo_joints else None
+        self.right_hand_idx = self.demo_joints.index("RightHand") if "RightHand" in self.demo_joints else None
+        self.has_snooker_hands = (self.left_hand_idx is not None) and (self.right_hand_idx is not None)
 
         # Setup weights and parameters
         self.laplacian_weights = 10
@@ -239,25 +263,69 @@ class InteractionMeshRetargeter:
     #! cube：整个函数都是新增的。
     def _get_active_laplacian_links(self, frame_idx: int) -> tuple[dict[str, str], float]:
         """Return active Laplacian links and snooker alpha for the given frame."""
-        snooker_alpha = self._calc_snooker_alpha(frame_idx) #只有当运行程序指令有传入frame range参数时，snooker_alpha才会不为0。
+        snooker_alpha = self._calc_snooker_alpha(frame_idx)  # 只有传入 frame_range 才会>0
 
-        # 如果 snooker Laplacian 开关为 False，则无论是否处于台球区间，都不加入这三个点
-        if not self.activate_snooker_laplacian:
-            snooker_keys = {"RightHandGrip", "LeftHandBridge", "CueTip"}
-            filtered_links = {k: v for k, v in self.laplacian_match_links.items() if k not in snooker_keys}
-            return filtered_links, snooker_alpha
-        
-        # 如果不是台球任务，直接返回默认配置
-        if self.snooker_frame_range is None:
-            return self.laplacian_match_links, snooker_alpha
-            
-        # 修复逻辑：只有在 alpha > 0 (即进入台球过渡区间) 时，才考虑剔除逻辑。
-        # 如果 alpha == 0，说明在正常阶段，必须返回全部点以维持原版 retarget 行为。
-        if snooker_alpha <= 0:
-            return self.laplacian_match_links, snooker_alpha
+        active_links = dict(self.base_laplacian_match_links)
 
-        # 对于台球任务活跃区间 (alpha > 0)：保留全部点
-        return self.laplacian_match_links, snooker_alpha
+        # 只有开启 snooker Laplacian 且具备左右手数据时，才追加虚拟点
+        if self.activate_snooker_laplacian and self.has_snooker_hands:
+            if self.snooker_frame_range is None:
+                active_links.update(self.snooker_virtual_links)
+            elif snooker_alpha > 0:
+                active_links.update(self.snooker_virtual_links)
+
+        return active_links, snooker_alpha
+
+    def _compute_snooker_virtual_positions(
+        self,
+        frame_idx: int,
+        human_pos_full: np.ndarray,
+        human_quat_full: np.ndarray | None,
+        has_rot_data: bool,
+    ) -> dict[str, np.ndarray]:
+        """Compute snooker virtual points in human space for the given frame."""
+        if not self.has_snooker_hands:
+            return {}
+
+        lh_pos = human_pos_full[frame_idx, self.left_hand_idx]
+        rh_pos = human_pos_full[frame_idx, self.right_hand_idx]
+
+        r_lh = None
+        r_rh = None
+        if has_rot_data and human_quat_full is not None:
+            lh_quat_wxyz = human_quat_full[frame_idx, self.left_hand_idx]
+            rh_quat_wxyz = human_quat_full[frame_idx, self.right_hand_idx]
+            r_lh = Rotation.from_quat([lh_quat_wxyz[1], lh_quat_wxyz[2], lh_quat_wxyz[3], lh_quat_wxyz[0]])
+            r_rh = Rotation.from_quat([rh_quat_wxyz[1], rh_quat_wxyz[2], rh_quat_wxyz[3], rh_quat_wxyz[0]])
+
+        if r_lh is not None and r_rh is not None:
+            left_bridge = lh_pos + r_lh.apply(self.virtual_site_offsets["LeftHandBridge"])
+            right_grip = rh_pos + r_rh.apply(self.virtual_site_offsets["RightHandGrip"])
+            cue_grip_on_stick = rh_pos + r_rh.apply(self.snooker_cue_grip_offset)
+            bridge_pos = lh_pos + r_lh.apply(self.virtual_site_offsets["LeftHandBridge"])
+        else:
+            left_bridge = lh_pos + self.virtual_site_offsets["LeftHandBridge"]
+            right_grip = rh_pos + self.virtual_site_offsets["RightHandGrip"]
+            cue_grip_on_stick = rh_pos + self.snooker_cue_grip_offset
+            bridge_pos = lh_pos + self.virtual_site_offsets["LeftHandBridge"]
+
+        direction = bridge_pos - cue_grip_on_stick
+        norm = float(np.linalg.norm(direction))
+        if norm < 1e-8:
+            if r_rh is not None:
+                direction_norm = r_rh.apply(np.array([0.0, 0.0, 1.0]))
+            else:
+                direction_norm = np.array([0.0, 0.0, 1.0])
+        else:
+            direction_norm = direction / norm
+
+        cue_tip = cue_grip_on_stick + direction_norm * self.snooker_cue_length
+
+        return {
+            "LeftHandBridge": left_bridge,
+            "RightHandGrip": right_grip,
+            "CueTip": cue_tip,
+        }
 
     def _setup_visualization(self):
         """Setup Viser visualization components."""
@@ -449,17 +517,29 @@ class InteractionMeshRetargeter:
                 object_trans_demo = object_poses[i, :3]
 
                 #! cube:  Get human joint positions and create interaction mesh in object frame
-                human_mapped_joints = human_pos_full[i, self.smplh_mapped_joint_indices] #根据初始化时确定的索引（smplh_mapped_joint_indices），从人体动作数据中提取出当前帧需要匹配的关节点坐标（例如：手、脚、脊柱等 13 或 16 个点）。
+                # 根据基础映射提取当前帧的人体关节点（不包含 snooker 虚拟点）
+                base_human_joints = human_pos_full[i, self.smplh_mapped_joint_indices]
 
-                #! cube: human_mapped_joints 最初包含了所有可能的点（包括球杆、手、脚等）, 再根据active_links的值，过滤掉不活跃的点
-                active_links, _snooker_alpha = self._get_active_laplacian_links(i) #调用辅助函数确定当前帧活跃的网格顶点
-                active_link_names = list(active_links.values()) #获取活跃点对应的机器人 Link 名称列表
-                if len(active_links) != len(self.laplacian_match_links):
-                    all_link_keys = list(self.laplacian_match_links.keys())
-                    active_key_set = set(active_links.keys())
-                    keep_mask = np.array([key in active_key_set for key in all_link_keys], dtype=bool)
-                    human_mapped_joints = human_mapped_joints[keep_mask] 
-                    #human_mapped_joints:存储了真人关节在当前帧的具体空间位置（x, y, z 坐标）
+                # 计算本帧活跃的网格顶点（按顺序返回）
+                active_links, _snooker_alpha = self._get_active_laplacian_links(i)
+                active_link_keys = list(active_links.keys())
+                active_link_names = list(active_links.values())
+
+                # 如果启用 snooker 虚拟点，则在本地按顺序拼接
+                snooker_virtual_positions = {}
+                if self.activate_snooker_laplacian and self.has_snooker_hands:
+                    snooker_virtual_positions = self._compute_snooker_virtual_positions(
+                        i, human_pos_full, human_quat_full, has_rot_data
+                    )
+
+                human_mapped_joints = []
+                for key in active_link_keys:
+                    if key in self.base_key_to_idx:
+                        human_mapped_joints.append(base_human_joints[self.base_key_to_idx[key]])
+                    else:
+                        human_mapped_joints.append(snooker_virtual_positions.get(key, np.zeros(3)))
+
+                human_mapped_joints = np.asarray(human_mapped_joints, dtype=float)
 
                 if self.object_name == "ground": #如果操作物体是“地面”，则认为物体的局部坐标系就是世界坐标系，无需坐标变换。
                     human_mapped_joints_in_object = human_mapped_joints
@@ -1356,8 +1436,11 @@ class InteractionMeshRetargeter:
                 pC_B = point_offsets
             else:
                 # pC_B = np.zeros(3) #! cube
-                #! cube: 优先级：代码配置中的 VIRTUAL_SITE_OFFSETS > 全零
-                virtual_offsets = getattr(self.task_constants, "VIRTUAL_SITE_OFFSETS", {})
+                #! cube: 优先级：task_constants 中的偏移 > 本文件 snooker 虚拟点偏移 > 全零
+                virtual_offsets = {}
+                if hasattr(self.task_constants, "VIRTUAL_SITE_OFFSETS"):
+                    virtual_offsets.update(self.task_constants.VIRTUAL_SITE_OFFSETS)
+                virtual_offsets.update(self.virtual_site_offsets)
                 pC_B = np.array(virtual_offsets.get(name, [0.0, 0.0, 0.0]))
 
             J = self._calc_contact_jacobian_from_point(body_id, pC_B)

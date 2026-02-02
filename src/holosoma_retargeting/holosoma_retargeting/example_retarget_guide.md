@@ -48,15 +48,6 @@ python examples/parallel_robot_retarget.py \
 
 ```
 
-python examples/0128parallel_robot_retarget.py \
-  --data-dir snooker_npy \
-  --task-type robot_only \
-  --data_format nokov \
-  --save_dir snooker_results \
-  --task-config.object-name ground \
-  --task-config.ground-range -5 5 \
-  --retargeter.foot-sticking-tolerance 0.02 \
-  --max-workers 12
 
 **参数说明：**
 - python examples/parallel_robot_retarget.py: 调用并行重定向主脚本，利用多核 CPU 同时处理多个文件。
@@ -80,12 +71,10 @@ python viser_player.py \
   
 python viser_player.py \
   --mjcf_path models/g1/scene_29dof_cue.xml \
-  --qpos_npz snooker_results/snooker2_original.npz
+  --qpos_npz snooker_results/snooker3_original.npz
 
 
 ```
 
-python viser_player.py \
-  --mjcf_path models/g1/scene_29dof_cue.xml \
-  --qpos_npz snooker_results0128/snooker2_original.npz
+
 
