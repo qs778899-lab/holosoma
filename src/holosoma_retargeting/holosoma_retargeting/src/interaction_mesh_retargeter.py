@@ -1094,9 +1094,11 @@ class InteractionMeshRetargeter:
         
         # PRINT调试信息：如果 Cost 异常（例如大于 100），打印分量
         if frame_idx % 3 == 0:
-             print(f"\n[Debug Frame {frame_idx}] Total Cost: {problem.value:.2f}")
+             cost_val = problem.value if problem.value is not None else float('inf')
+             print(f"\n[Debug Frame {frame_idx}] Total Cost: {cost_val:.2f}")
              for name, term in zip(obj_names, obj_terms):
-                 print(f"  - {name}: {term.value:.2f}")
+                 term_val = term.value if term.value is not None else float('nan')
+                 print(f"  - {name}: {term_val:.2f}")
         if (problem.status not in (cp.OPTIMAL, cp.OPTIMAL_INACCURATE)) and init_t:
             constraints = [c for c in constraints if not isinstance(c, cp.constraints.second_order.SOC)]
             problem = cp.Problem(cp.Minimize(cp.sum(obj_terms)), constraints)

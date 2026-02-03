@@ -476,13 +476,14 @@ def _compute_q_init_base(
         if retargeter is None:
             raise ValueError("retargeter is required for climbing task")
         _, human_quat_init = transform_from_human_to_world(
-            human_joints[0, 0, :], object_poses[0], np.array([0.0, 0.0, 0.0])
+            human_joints[0, 0, :3], object_poses[0], np.array([0.0, 0.0, 0.0]) #! scene: 因为npy文件有修改，每个关节有 7 个值（位置 + 四元数）。
         )
         spine_joint_idx = retargeter.demo_joints.index("Spine1")
         # MuJoCo order: pos first, then quat
+        # Note: human_joints may be (T, J, 7) with pos+quat, so only take first 3 (position)
         q_init_base = np.concatenate(
             [
-                human_joints[0, spine_joint_idx],
+                human_joints[0, spine_joint_idx, :3],  #! scene: Only position (3D), not pos+quat (7D)
                 human_quat_init,
                 np.zeros(constants.ROBOT_DOF),
             ]

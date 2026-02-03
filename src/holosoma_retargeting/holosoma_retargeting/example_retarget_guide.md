@@ -98,22 +98,46 @@ python viser_player.py \
 
 ### 5.1 目录结构
 
-台球桌场景的文件已准备在 `demo_data/snooker/snooker_table/` 目录下：
+台球桌场景的文件在 `demo_data/snooker/snooker_table/` 目录下：
 
 ```
 demo_data/snooker/snooker_table/
-├── snooker_table.obj              # 球桌 mesh 文件（用于表面点采样）
-├── snooker_table_simple.obj       # 简化的桌面 mesh（仅桌面）
-├── snooker_table.urdf             # 球桌 URDF 文件（viser 可视化用）
+│
+│  ═══════════════ Retargeting 核心文件（MuJoCo 仿真） ═══════════════
+│
+├── g1_29dof_w_snooker_table.xml   # 完整场景 XML（机器人 + 球桌）
+│   ├── <include file="box_assets.xml"/>
+│   └── <include file="box_body.xml"/>
+│
 ├── box_assets.xml                 # MuJoCo 资产定义
-├── box_body.xml                   # MuJoCo 几何体定义
-├── g1_29dof_w_snooker_table.xml   # 完整场景 XML（retarget 过程需要，用于碰撞检测）
-├── generate_snooker_mesh.py       # 生成 mesh 文件的脚本
+│   └── <mesh file="snooker_table.obj"/>
+│
+├── box_body.xml                   # MuJoCo 几何体定义（静态 geom）
+│   └── 引用 box_assets.xml 中定义的 mesh
+│
+├── snooker_table.obj              # 3D mesh 文件（顶点 + 面片）
+│   └── 被 MuJoCo 加载 + 被 load_object_data() 用于表面点采样
+│
+│  ═══════════════ 可视化文件（Viser） ═══════════════
+│
+├── snooker_table.urdf             # 球桌 URDF 文件
+│   └── 引用 snooker_table.obj
+│
+│  ═══════════════ 工具和数据 ═══════════════
+│
+├── generate_snooker_mesh.py       # 生成 snooker_table.obj 的脚本
 └── your_motion_data.npy           # 放置你的 Mocap 数据
 ```
 
-> **注意**: `g1_29dof_w_snooker_table.xml` 在 retargeting 过程中用于 MuJoCo 物理仿真和碰撞检测。
-> 可视化时可以使用 `models/g1/scene_29dof_cue.xml`，因为球桌位置一致。
+**文件引用关系：**
+```
+g1_29dof_w_snooker_table.xml  ──include──►  box_assets.xml  ──file──►  snooker_table.obj
+                              ──include──►  box_body.xml    ──mesh──►  (引用 box_assets.xml 中的 mesh)
+```
+
+> **注意**: 
+> - Retargeting 时 MuJoCo 加载 `g1_29dof_w_snooker_table.xml`，它通过 include 依赖其他文件
+> - 可视化时使用 `models/g1/scene_29dof_cue.xml`（G1 适配尺寸）或 `snooker_table.urdf`
 
 ### 5.2 球桌参数说明
 
@@ -187,8 +211,8 @@ z=-0.84  ┴──────────────  桌腿底部
 ```bash
 
 python viser_player.py \
-  --mjcf_path demo_data/snooker/snooker_table/g1_29dof_w_snooker_table.xml \
-  --qpos_npz snooker_climbing_results/your_motion_original.npz
+  --mjcf_path demo_data/snooker/snooker_table/g1_29dof_w_snooker_table_scaled_0.74_0.74_0.74.xml \
+  --qpos_npz snooker_climbing_results/snooker_original.npz
 ```
 
 ### 5.6 自定义球桌参数
