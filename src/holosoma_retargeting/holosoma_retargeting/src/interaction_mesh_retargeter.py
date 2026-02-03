@@ -65,7 +65,9 @@ class InteractionMeshRetargeter:
         debug: bool = False,
         w_nominal_tracking_init: float = 5.0,
         nominal_tracking_tau: float = 10.0,
-        snooker_frame_range: list[int] | None = None, 
+        snooker_frame_range: list[int] | None = None,
+        laplacian_frame_range: list[int] | None = None,
+        wrist_tracking_frame_range: list[int] | None = None,
     ):
         """This kinematic retargeter solves the diffIK problem with hard constraints in SQP style.
         During each SQP iteration, the problem is solved with the following constraints and costs:
@@ -132,6 +134,10 @@ class InteractionMeshRetargeter:
         self.activate_snooker_laplacian = activate_snooker_laplacian
         self.activate_realtime_rotation_tracking = activate_realtime_rotation_tracking
         self.activate_general_nominal_tracking = activate_general_nominal_tracking
+        
+        # 独立的帧范围参数（如果未设置，则回退到 snooker_frame_range）
+        self.laplacian_frame_range = laplacian_frame_range if laplacian_frame_range is not None else snooker_frame_range
+        self.wrist_tracking_frame_range = wrist_tracking_frame_range if wrist_tracking_frame_range is not None else snooker_frame_range
 
         # --- 初始化日志功能 ---
         # 使用相对于脚本所在目录的路径，确保存入 holosoma_retargeting/logs
@@ -212,7 +218,7 @@ class InteractionMeshRetargeter:
             self.task_constants.MANUAL_UB.values()
         )
 
-        #! cube: Override wrist limits for snooker to prevent shaking
+        #! cube: 放宽手腕的关节限位
         # Note: task_constants is a SimpleNamespace populated with UPPERCASE properties from RobotConfig.
         # robot_type is lowercase, so it's not copied. We use ROBOT_NAME instead.
         robot_name = getattr(self.task_constants, "ROBOT_NAME", "")
@@ -274,7 +280,10 @@ class InteractionMeshRetargeter:
 
     #! cube
     def _calc_snooker_alpha(self, frame_idx: int) -> float:
-        """Compute snooker activation alpha for a given frame index using cosine smoothing."""
+        """Compute snooker activation alpha for a given frame index using cosine smoothing.
+        [LEGACY] This function is kept for backward compatibility.
+        Use _calc_laplacian_alpha or _calc_wrist_tracking_alpha for independent control.
+        """
         if self.snooker_frame_range is None:
             return 0.0
         start_f, end_f = self.snooker_frame_range
@@ -292,21 +301,62 @@ class InteractionMeshRetargeter:
         # 这种曲线在起点和终点的导数为 0，能实现无感的力平滑过渡。
         return 0.5 * (1.0 - np.cos(np.pi * t))
 
+    def _calc_alpha_for_range(self, frame_idx: int, frame_range: list[int] | None) -> float:
+        """Generic alpha calculation for any frame range using cosine smoothing.
+        
+        Args:
+            frame_idx: Current frame index
+            frame_range: [start_frame, end_frame] or None
+            
+        Returns:
+            Alpha value in [0, 1] with smooth ramp-in/ramp-out
+        """
+        if frame_range is None:
+            return 0.0
+        start_f, end_f = frame_range
+        if (frame_idx < start_f) or (frame_idx > end_f):
+            return 0.0
+        ramp = max(int(self.snooker_ramp_frames), 1)
+        if frame_idx < start_f + ramp:
+            t = (frame_idx - start_f) / ramp
+        elif frame_idx > end_f - ramp:
+            t = (end_f - frame_idx) / ramp
+        else:
+            return 1.0
+        return 0.5 * (1.0 - np.cos(np.pi * t))
+
+    def _calc_laplacian_alpha(self, frame_idx: int) -> float:
+        """Compute Laplacian virtual points activation alpha for a given frame index.
+        Uses laplacian_frame_range (falls back to snooker_frame_range if not set).
+        """
+        return self._calc_alpha_for_range(frame_idx, self.laplacian_frame_range)
+
+    def _calc_wrist_tracking_alpha(self, frame_idx: int) -> float:
+        """Compute wrist rotation tracking activation alpha for a given frame index.
+        Uses wrist_tracking_frame_range (falls back to snooker_frame_range if not set).
+        """
+        return self._calc_alpha_for_range(frame_idx, self.wrist_tracking_frame_range)
+
     #! cube：整个函数都是新增的。
-    def _get_active_laplacian_links(self, frame_idx: int) -> tuple[dict[str, str], float]:
-        """Return active Laplacian links and snooker alpha for the given frame."""
-        snooker_alpha = self._calc_snooker_alpha(frame_idx)  # 只有传入 frame_range 才会>0
+    def _get_active_laplacian_links(self, frame_idx: int) -> tuple[dict[str, str], float, float]:
+        """Return active Laplacian links and alpha values for the given frame.
+        
+        Returns:
+            tuple: (active_links, laplacian_alpha, wrist_tracking_alpha)
+        """
+        laplacian_alpha = self._calc_laplacian_alpha(frame_idx)
+        wrist_tracking_alpha = self._calc_wrist_tracking_alpha(frame_idx)
 
         active_links = dict(self.base_laplacian_match_links)
 
         # 只有开启 snooker Laplacian 且具备左右手数据时，才追加虚拟点
         if self.activate_snooker_laplacian and self.has_snooker_hands:
-            if self.snooker_frame_range is None:
+            if self.laplacian_frame_range is None:
                 active_links.update(self.snooker_virtual_links)
-            elif snooker_alpha > 0:
+            elif laplacian_alpha > 0:
                 active_links.update(self.snooker_virtual_links)
 
-        return active_links, snooker_alpha
+        return active_links, laplacian_alpha, wrist_tracking_alpha
 
     def _compute_snooker_virtual_positions(
         self,
@@ -553,7 +603,9 @@ class InteractionMeshRetargeter:
                 base_human_joints = human_pos_full[i, self.smplh_mapped_joint_indices]
 
                 # 计算本帧活跃的网格顶点（按顺序返回）
-                active_links, _snooker_alpha = self._get_active_laplacian_links(i)
+                # laplacian_alpha: 控制 Laplacian 虚拟点的添加和权重
+                # wrist_tracking_alpha: 控制手腕旋转追踪的权重
+                active_links, laplacian_alpha, wrist_tracking_alpha = self._get_active_laplacian_links(i)
                 active_link_keys = list(active_links.keys())
                 active_link_names = list(active_links.values())
 
@@ -748,6 +800,7 @@ class InteractionMeshRetargeter:
                     is_full_nominal=is_full_nominal, #! cube: 传递标记位
                     target_lh_quat=target_lh_quat, #! wrist: 传递左手目标全局四元数
                     target_rh_quat=target_rh_quat, #! cube: 传递右手目标全局四元数
+                    wrist_tracking_alpha=wrist_tracking_alpha,  #! wrist: 独立的手腕追踪激活因子
                 )
                 if self.debug:
                     robot_link_positions = self._get_robot_link_positions(
@@ -843,6 +896,7 @@ class InteractionMeshRetargeter:
         is_full_nominal: bool = False,
         target_lh_quat: np.ndarray | None = None,  #! wrist: 左手目标全局四元数 (wxyz)
         target_rh_quat: np.ndarray | None = None,  #! cube: 右手目标全局四元数 (wxyz)
+        wrist_tracking_alpha: float = 0.0,  #! w 独立的手腕追踪激活因子（用于权重计算）
     ):
         """The main function to solve a single iteration of the DiffIK problem.
         Args:
@@ -863,7 +917,9 @@ class InteractionMeshRetargeter:
         q[self.q_a_indices] = q_a_n_last
 
         #! cube: Snooker activity logic (Frame Gating + Smooth Transition)
-        active_links, snooker_alpha = self._get_active_laplacian_links(frame_idx) #数学求解阶段（每帧可能会跑多次，在优化器迭代中）。
+        # 获取 Laplacian 网格的 active_links 和 laplacian_alpha（用于虚拟点权重）
+        # wrist_tracking_alpha 从参数传入，独立控制手腕追踪
+        active_links, laplacian_alpha, _ = self._get_active_laplacian_links(frame_idx)
 
         # 调试打印：确认网格顶点和 Tracking 状态
         # 强制在第 0 帧打印，后续每 100 帧在 debug 模式下打印
@@ -873,11 +929,13 @@ class InteractionMeshRetargeter:
             print(f"Laplacian Nodes (Total {len(robot_keys)}): {robot_keys}")
             
             # 检查 Nominal Tracking 状态
-            snooker_track_on = self.activate_snooker_tracking and snooker_alpha > 0 and q_a_nominal is not None
+            wrist_track_on = self.activate_snooker_tracking and wrist_tracking_alpha > 0
             general_track_on = self.activate_general_nominal_tracking and is_full_nominal and (w_nominal_tracking > 0) and (q_a_nominal is not None)
             
-            print(f"Nominal Tracking Status:")
-            print(f"  - Snooker Tracking (Left Wrist): {'ON' if snooker_track_on else 'OFF'} (alpha: {snooker_alpha:.2f})")
+            print(f"Tracking Status:")
+            print(f"  - Laplacian Alpha: {laplacian_alpha:.2f}")
+            print(f"  - Wrist Tracking Alpha: {wrist_tracking_alpha:.2f}")
+            print(f"  - Wrist Rotation Tracking: {'ON' if wrist_track_on else 'OFF'}")
             print(f"  - General Nominal Tracking: {'ON' if general_track_on else 'OFF'}")
             if general_track_on:
                 print(f"    - Tracked Indices: {self.track_nominal_indices}")
@@ -901,8 +959,8 @@ class InteractionMeshRetargeter:
         robot_pts_local = np.array([p_OC_dict[k] for k in robot_link_keys])
         vertices = np.vstack([robot_pts_local, obj_pts_local])  # (V x 3)
 
-        #! cube:  Snooker-specific: add manual edges and adjust weights
-        if self.activate_snooker_laplacian and snooker_alpha > 0 and ("RightHandGrip" in robot_link_keys) and ("LeftHandBridge" in robot_link_keys) and ("CueTip" in robot_link_keys):
+        #! cube: add manual edges and adjust weights
+        if self.activate_snooker_laplacian and laplacian_alpha > 0 and ("RightHandGrip" in robot_link_keys) and ("LeftHandBridge" in robot_link_keys) and ("CueTip" in robot_link_keys):
             # 获取这三个关键点在网格顶点列表中的索引
             rh_grip_idx = robot_link_keys.index("RightHandGrip")
             lh_bridge_idx = robot_link_keys.index("LeftHandBridge")
@@ -1015,10 +1073,10 @@ class InteractionMeshRetargeter:
         # 计算 Laplacian 权重
         w_v = (self.laplacian_weights * np.ones(V)).astype(float)
         
-        #! cube  : 
-        if self.activate_snooker_laplacian and snooker_alpha > 0:
-            # 权重随 alpha 平滑增强
-            snooker_weight = 0 + (10 * snooker_alpha) 
+        #! cube: Laplacian 虚拟点权重（使用 laplacian_alpha）
+        if self.activate_snooker_laplacian and laplacian_alpha > 0:
+            # 权重随 laplacian_alpha 平滑增强
+            snooker_weight = 0 + (10 * laplacian_alpha) 
             w_v[rh_grip_idx] = snooker_weight
             w_v[lh_bridge_idx] = snooker_weight
             w_v[cue_tip_idx] = snooker_weight
@@ -1139,7 +1197,7 @@ class InteractionMeshRetargeter:
         #! wrist:
         # 使用旋转雅可比匹配机器人 left_wrist_yaw_link 的全局旋转到人类 LeftHand 的全局旋转
         global_rotation_tracking_added = False
-        if self.activate_snooker_tracking and snooker_alpha > 0 and target_lh_quat is not None:
+        if self.activate_snooker_tracking and wrist_tracking_alpha > 0 and target_lh_quat is not None:
             try:
                 # 计算旋转雅可比和误差
                 J_rot, rot_error, current_quat = self._calc_rotation_jacobian_and_error(
@@ -1149,7 +1207,7 @@ class InteractionMeshRetargeter:
                 # 线性化：rot_error_new ≈ rot_error - J_rot @ dqa
                 # Cost: ||rot_error - J_rot @ dqa||^2
                 # 最小化 dqa 使旋转误差趋近于 0
-                rotation_tracking_weight = 10.0 * snooker_alpha
+                rotation_tracking_weight = 10.0 * wrist_tracking_alpha
                 
                 # CVXPY: minimize || rot_error - J_rot @ dqa ||^2
                 rot_cost = rotation_tracking_weight * cp.sum_squares(
@@ -1164,7 +1222,7 @@ class InteractionMeshRetargeter:
                     rot_error_deg = np.rad2deg(np.linalg.norm(rot_error))
                     debug_msg = (
                         f"\n=== [Global Rotation Tracking - Frame {frame_idx}] ===\n"
-                        f"  snooker_alpha: {snooker_alpha:.4f}\n"
+                        f"  wrist_tracking_alpha: {wrist_tracking_alpha:.4f}\n"
                         f"  rotation_tracking_weight: {rotation_tracking_weight:.4f}\n"
                         f"  target_quat (wxyz): [{target_lh_quat[0]:.4f}, {target_lh_quat[1]:.4f}, {target_lh_quat[2]:.4f}, {target_lh_quat[3]:.4f}]\n"
                         f"  current_quat (wxyz): [{current_quat[0]:.4f}, {current_quat[1]:.4f}, {current_quat[2]:.4f}, {current_quat[3]:.4f}]\n"
@@ -1186,7 +1244,7 @@ class InteractionMeshRetargeter:
         #! cube: 右手腕全局旋转 Tracking（权重较低）
         # 使用旋转雅可比匹配机器人 right_wrist_yaw_link 的全局旋转到人类 RightHand 的全局旋转
         right_rotation_tracking_added = False
-        if self.activate_snooker_tracking and snooker_alpha > 0 and target_rh_quat is not None:
+        if self.activate_snooker_tracking and wrist_tracking_alpha > 0 and target_rh_quat is not None:
             try:
                 # 计算旋转雅可比和误差
                 J_rot_rh, rot_error_rh, current_quat_rh = self._calc_rotation_jacobian_and_error(
@@ -1194,7 +1252,7 @@ class InteractionMeshRetargeter:
                 )
                 
                 # 右手腕权重较低（左手的一半），因为右手主要靠虚拟点约束
-                right_rotation_weight = 5.0 * snooker_alpha
+                right_rotation_weight = 5.0 * wrist_tracking_alpha
                 
                 # CVXPY: minimize || rot_error - J_rot @ dqa ||^2
                 rot_cost_rh = right_rotation_weight * cp.sum_squares(
@@ -1209,7 +1267,7 @@ class InteractionMeshRetargeter:
                     rot_error_rh_deg = np.rad2deg(np.linalg.norm(rot_error_rh))
                     debug_msg = (
                         f"\n=== [Right Wrist Rotation Tracking - Frame {frame_idx}] ===\n"
-                        f"  snooker_alpha: {snooker_alpha:.4f}\n"
+                        f"  wrist_tracking_alpha: {wrist_tracking_alpha:.4f}\n"
                         f"  right_rotation_weight: {right_rotation_weight:.4f} (half of left wrist)\n"
                         f"  target_quat (wxyz): [{target_rh_quat[0]:.4f}, {target_rh_quat[1]:.4f}, {target_rh_quat[2]:.4f}, {target_rh_quat[3]:.4f}]\n"
                         f"  current_quat (wxyz): [{current_quat_rh[0]:.4f}, {current_quat_rh[1]:.4f}, {current_quat_rh[2]:.4f}, {current_quat_rh[3]:.4f}]\n"
@@ -1310,6 +1368,7 @@ class InteractionMeshRetargeter:
         is_full_nominal: bool = False,
         target_lh_quat: np.ndarray | None = None,  #! wrist: 左手目标全局四元数
         target_rh_quat: np.ndarray | None = None,  #! cube: 右手目标全局四元数
+        wrist_tracking_alpha: float = 0.0,  #! wrist: 独立的手腕追踪激活因子
     ):
         """Iterate the solver for multiple iterations."""
         last_cost = np.inf
@@ -1330,6 +1389,7 @@ class InteractionMeshRetargeter:
                 is_full_nominal=is_full_nominal,
                 target_lh_quat=target_lh_quat,  #! wrist: 传递左手目标全局四元数
                 target_rh_quat=target_rh_quat,  #! cube: 传递右手目标全局四元数
+                wrist_tracking_alpha=wrist_tracking_alpha,  #! wrist: 传递手腕追踪激活因子
             )
             if np.isclose(cost, last_cost):
                 break
@@ -1786,8 +1846,8 @@ class InteractionMeshRetargeter:
         point_offsets: np.ndarray | None = None,
     ):
         """Compute position-based Jacobians using MuJoCo."""
-        J_XC_dict = {}
-        p_XC_dict = {}
+        J_XC_dict = {} #存储每个点的雅可比矩阵。
+        p_XC_dict = {} #存储每个点的位置。
 
         if obj_frame:
             if self.has_dynamic_object:
@@ -1805,18 +1865,18 @@ class InteractionMeshRetargeter:
 
         mujoco.mj_forward(self.robot_model, self.robot_data)
 
-        for name, link_name in links.items():
+        for name, link_name in links.items(): #遍历link,即遍历网格中的点
             body_id = mujoco.mj_name2id(self.robot_model, mujoco.mjtObj.mjOBJ_BODY, link_name)
 
             if point_offsets is not None:
-                pC_B = point_offsets
+                pC_B = point_offsets # 使用传入的偏移量：point_offsets 目前只是一个预留参数，从未被实际传入。
             else:
                 # pC_B = np.zeros(3) #! cube
                 #! cube: 优先级：task_constants 中的偏移 > 本文件 snooker 虚拟点偏移 > 全零
                 virtual_offsets = {}
-                if hasattr(self.task_constants, "VIRTUAL_SITE_OFFSETS"):
+                if hasattr(self.task_constants, "VIRTUAL_SITE_OFFSETS"): #无实际用处，因为self.task_constants中并没有定义VIRTUAL_SITE_OFFSETS内容
                     virtual_offsets.update(self.task_constants.VIRTUAL_SITE_OFFSETS)
-                virtual_offsets.update(self.virtual_site_offsets)
+                virtual_offsets.update(self.virtual_site_offsets) #self.virtual_site_offsets有被定义！
                 pC_B = np.array(virtual_offsets.get(name, [0.0, 0.0, 0.0]))
 
             J = self._calc_contact_jacobian_from_point(body_id, pC_B)
@@ -1835,7 +1895,7 @@ class InteractionMeshRetargeter:
                 J_XC = J
 
             # Store reduced Jacobian and position with hard copies to avoid aliasing
-            J_XC_dict[name] = np.array(J_XC[:, self.q_a_indices], dtype=float, copy=True)  # FIX (copy)
+            J_XC_dict[name] = np.array(J_XC[:, self.q_a_indices], dtype=float, copy=True)  
             p_XC_dict[name] = np.array(p_XC, dtype=float, copy=True)
 
         P_WO = {"position": obj_pos, "rotation": obj_rot} if obj_frame else None

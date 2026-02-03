@@ -194,7 +194,9 @@ $$ \text{s.t. } A \Delta q \le b $$
 
 
 
+4. 角度trackinng和网格laplacia约束易冲突:
 
+    原因：（1）关节映射和放缩尺寸不准导致参考位姿不准。（2）
 
 
 

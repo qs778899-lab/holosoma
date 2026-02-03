@@ -428,6 +428,8 @@ JOINTS_MAPPINGS = {
         # "RightHand": "right_rubber_hand_link",       
         "LeftHand": "left_wrist_yaw_link",        #! wrist
         "RightHand": "right_wrist_yaw_link",      #! wrist
+
+        
     },
 
 }

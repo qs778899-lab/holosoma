@@ -55,7 +55,17 @@ class RetargeterConfig:
     """Time constant for the nominal tracking cost."""
 
     snooker_frame_range: list[int] | None = None
-    """[start_frame, end_frame] where snooker constraints are active."""
+    """[start_frame, end_frame] where snooker constraints are active.
+    This is a legacy parameter that controls both Laplacian and wrist tracking.
+    Use laplacian_frame_range and wrist_tracking_frame_range for independent control."""
+
+    laplacian_frame_range: list[int] | None = None
+    """[start_frame, end_frame] where Laplacian virtual points (CueTip, LeftHandBridge, RightHandGrip) are active.
+    If None, falls back to snooker_frame_range."""
+
+    wrist_tracking_frame_range: list[int] | None = None
+    """[start_frame, end_frame] where wrist rotation tracking is active.
+    If None, falls back to snooker_frame_range."""
 
     activate_snooker_tracking: BoolWithExplicitValue = False
     """Whether to enable left wrist yaw tracking for snooker task."""

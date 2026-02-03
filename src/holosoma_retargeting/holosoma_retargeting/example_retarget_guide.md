@@ -72,6 +72,8 @@ python examples/parallel_robot_retarget.py \
   --retargeter.activate-snooker-laplacian True \
   --retargeter.activate-realtime-rotation-tracking False \
   --retargeter.activate-general-nominal-tracking False \
+  --retargeter.laplacian-frame-range 580 1300 \
+  --retargeter.wrist-tracking-frame-range 0 1704 \
   --retargeter.snooker-frame-range 580 1300 \
   --max-workers 12
 
@@ -100,8 +102,7 @@ python viser_player.py \
   
 python viser_player.py \
   --mjcf_path models/g1/scene_29dof_cue.xml \
-  --qpos_npz snooker_results/snooker4_ori
-  ginal.npz
+  --qpos_npz snooker_results/snooker2_original.npz
 
 
 
@@ -112,7 +113,7 @@ python viser_player.py \
 
 
 
-  
+
 
 
 ```

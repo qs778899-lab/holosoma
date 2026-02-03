@@ -535,6 +535,9 @@ def build_retargeter_kwargs_from_config(
         "debug": retargeter_config.debug,
         "w_nominal_tracking_init": retargeter_config.w_nominal_tracking_init,
         "snooker_frame_range": retargeter_config.snooker_frame_range,
+        # 独立的帧范围参数
+        "laplacian_frame_range": retargeter_config.laplacian_frame_range,
+        "wrist_tracking_frame_range": retargeter_config.wrist_tracking_frame_range,
         # Snooker-specific parameters
         "activate_snooker_tracking": retargeter_config.activate_snooker_tracking,
         "activate_snooker_laplacian": retargeter_config.activate_snooker_laplacian,
