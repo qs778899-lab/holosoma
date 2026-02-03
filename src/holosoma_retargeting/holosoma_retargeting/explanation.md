@@ -62,7 +62,7 @@
 2.  **身材适配**:    
 *   由于 Holosoma 优化的是相对距离比例，它在处理身材差异（如 G1 机器人与成年男性）时，比 GMR 的绝对坐标追踪更不容易出现“拉伸感”或“扭曲感”。
 
-## 4. 数学框架：二次规划 (Quadratic Programming, QP)
+## 4. 数学优化框架：二次规划 (Quadratic Programming, QP)
 
 ### 共同点
 GMR 和 Holosoma 在本质上都属于**基于优化（Optimization-based）的逆运动学**。它们每一帧都在解一个二次规划问题：
@@ -85,15 +85,31 @@ $$ \text{s.t. } A \Delta q \le b $$
     *   **优点**: 极高的自定义能力。Holosoma 借此实现了“交互网格（Interaction Mesh）”，即不仅仅追踪关节的位置，还追踪关节之间的网格形变量。
     *   **缺点**: 代码实现复杂，需要深厚的数学基础来手动推导雅可比矩阵 (Jacobians)。
 
-## 5. 实际使用体验
 
-    *   holosoma运行慢很多
-    *   GMR得到的robot腿部的运动更自然
-    *   holosoma腿部运动容易内八的原因：（1）在 Laplacian项中，只考虑点对点，无角度关系。 (2) Nominal 项的权重太低。
+## 5. 数值优化技术与数学原理 (Holosoma)
+
+1. **交互网格与拉普拉斯形变 (Laplacian Deformation)**：
+   - **数学定义 (微分坐标)**：对于顶点 $i$，其拉普拉斯坐标 $\delta_i$ 定义为该点与其邻域 $\mathcal{N}(i)$ 中心之差：$\delta_i = \mathbf{v}_i - \sum_{j \in \mathcal{N}(i)} w_{ij} \mathbf{v}_j$。矩阵形式为 $\Delta = L \mathbf{V}$。它描述了每个顶点相对于其局部环境的“偏差”，即拓扑特征。
+   - **解析雅可比 (Jacobian)**：为了在速度空间优化，系统建立了从关节速度 $\dot{q}$ 到拉普拉斯特征变化率 $\dot{\Delta}$ 的解析映射：$\dot{\Delta} = (L \otimes I_3) J_V \dot{q}$，其中 $J_V$ 是所有关键点的笛卡尔雅可比矩阵的堆叠。
+   - 注意：交互网格（Interaction Mesh）本身确实只考虑关键点的 3D 坐标，而不直接显式地包含旋转（Orientation）信息。
+
+2. **序列二次规划 (SQP) 风格的微分 IK**：
+   - **迭代线性化**：将非线性逆运动学问题转化为每一帧内的 QP 子问题。通过多次迭代更新雅可比矩阵和约束状态，逼近高度非线性的运动轨迹。
+   - **信任区域 (Trust Region)**：引入二阶锥约束 (SOC) 限制单步关节增量 $\|\Delta q\| \le \delta$，确保泰勒一阶展开的线性近似有效性。
+
+3. **带硬约束的凸优化 (Constrained Convex Optimization)**：
+   - **求解器**：基于 `cvxpy` 与 `CLARABEL` 求解器。
+   - **非穿透约束**：利用 MuJoCo 的距离场 $\phi$ 与接触雅可比 $J_c$，强制执行 $J_c \Delta q \ge -\phi$，从物理层面防止自碰撞或环境穿透。
+   - **接触保持 (Contact Sticking)**：通过线性化约束维持支撑腿位置，确保重定向后的步态稳定性。
+
+4. **多目标权衡**：
+   - 优化函数综合了拉普拉斯特征追踪误差、名义姿态正则项以及运动平滑度代价。
 
 
 
-## 6. 补充和改进：
+
+
+## 6. 知识补充
 
 1. Joint 和 Link: 
     
@@ -106,36 +122,13 @@ $$ \text{s.t. } A \Delta q \le b $$
 
     结果（Link）：使得机器人的 Link 上的特定点与人类的关节坐标尽量重合。
 
-2. 改进腿部内八的不自然姿态：
-
-    Note: 不同bvh文件的left toe offset可能不同，但同一bvh文件肯定相同。
-
-    bvh文件分为 HIERARCHY 和 MOTION 两大部分。（运行 python check_bvh_alignment.py snooker/snooker2.bvh 可查看具体数据格式和内容）
-    - **HIERARCHY 部分**是一个分层树结构，定义了骨骼的拓扑关系。每一个 Joint 记录了相对于父节点的 `OFFSET`（三维偏移量），这决定了骨骼的静态比例（如大腿长度）。同时，它通过 `CHANNELS` 声明了该关节在 MOTION 部分占用的数据量和含义。
-    - **MOTION 部分**是动画序列的原始数值记录。每一行代表一帧（Frame），包含了一长串由空格分隔的数字。这些数字的排列顺序严格遵循 HIERARCHY 部分定义的深度优先遍历顺序。例如索引0-5是Hips (Root)的Xpos, Ypos, Zpos, Yrot, Xrot, Zrot。
-    - **两者关系**：MOTION 部分的数字本身没有标签，必须依靠 HIERARCHY 定义的通道数（如 Hips 占 6 个位移+旋转通道，普通关节占 3 个旋转通道）来依次解析。
-    
-    （所以，Nominal 项也无法track脚踝的角度?  那GMR是在怎么处理这种bvh文件，是否有内置库函数可以先计算出每个joint的旋转角）
-
-    bvh文件中LeftFoot的特殊完整数据内容：
-    JOINT LeftFoot
-      {
-      OFFSET 0.0 -42.057999 0.0 #脚踝相对于膝盖的偏移向量
-      CHANNELS 3 Yrotation Xrotation Zrotation
-      End Site
-      {
-      OFFSET 0.000000 -10.000000 15.120000 #脚尖相对于脚踝的偏移向量
-      }
-      }
-
-
-3. urdf 和 xml 模型文件格式
+2. urdf 和 xml 模型文件格式
 
     * URDF：主要用于描述单个机器人的运动学结构（树状结构，只有一个 Root）。
 
     * XML：专为物理仿真设计。它可以定义整个“世界”，包括多个独立的物体、复杂的碰撞、真实的光照和材质。
 
-4. G1 link列表
+3. G1 link列表
 
     | 连杆名称 (Link Name) | 中文名称 | 备注 |
     | :--- | :--- | :--- |
@@ -160,29 +153,54 @@ $$ \text{s.t. } A \Delta q \le b $$
     | **left/right_toe_link** |  脚尖连杆
 
 
-## 7. 数值优化技术与数学原理 (Holosoma)
+## 7. 工程改进：
+
+1. 改进腿部内八的不自然姿态：
+
+    原因：在 Laplacian项中，只考虑点对点，无角度rotation关系约束
+
+    Note: 不同bvh文件的left toe offset可能不同，但同一bvh文件肯定相同。
+
+    bvh文件分为 HIERARCHY 和 MOTION 两大部分。（运行 python check_bvh_alignment.py snooker/snooker2.bvh 可查看具体数据格式和内容）
+    - **HIERARCHY 部分**是一个分层树结构，定义了骨骼的拓扑关系。每一个 Joint 记录了相对于父节点的 `OFFSET`（三维偏移量），这决定了骨骼的静态比例（如大腿长度）。同时，它通过 `CHANNELS` 声明了该关节在 MOTION 部分占用的数据量和含义。
+    - **MOTION 部分**是动画序列的原始数值记录。每一行代表一帧（Frame），包含了一长串由空格分隔的数字。这些数字的排列顺序严格遵循 HIERARCHY 部分定义的深度优先遍历顺序。例如索引0-5是Hips (Root)的Xpos, Ypos, Zpos, Yrot, Xrot, Zrot。
+    - **两者关系**：MOTION 部分的数字本身没有标签，必须依靠 HIERARCHY 定义的通道数（如 Hips 占 6 个位移+旋转通道，普通关节占 3 个旋转通道）来依次解析。
+    
+    （所以，Nominal 项也无法track脚踝的角度?  那GMR是在怎么处理这种bvh文件，是否有内置库函数可以先计算出每个joint的旋转角）
+
+    bvh文件中LeftFoot的特殊完整数据内容：
+    JOINT LeftFoot
+      {
+      OFFSET 0.0 -42.057999 0.0 #脚踝相对于膝盖的偏移向量
+      CHANNELS 3 Yrotation Xrotation Zrotation
+      End Site
+      {
+      OFFSET 0.000000 -10.000000 15.120000 #脚尖相对于脚踝的偏移向量
+      }
+      }
 
 
-1. **交互网格与拉普拉斯形变 (Laplacian Deformation)**：
-   - **数学定义 (微分坐标)**：对于顶点 $i$，其拉普拉斯坐标 $\delta_i$ 定义为该点与其邻域 $\mathcal{N}(i)$ 中心之差：$\delta_i = \mathbf{v}_i - \sum_{j \in \mathcal{N}(i)} w_{ij} \mathbf{v}_j$。矩阵形式为 $\Delta = L \mathbf{V}$。它描述了每个顶点相对于其局部环境的“偏差”，即拓扑特征。
-   - **解析雅可比 (Jacobian)**：为了在速度空间优化，系统建立了从关节速度 $\dot{q}$ 到拉普拉斯特征变化率 $\dot{\Delta}$ 的解析映射：$\dot{\Delta} = (L \otimes I_3) J_V \dot{q}$，其中 $J_V$ 是所有关键点的笛卡尔雅可比矩阵的堆叠。
-   - 注意：交互网格（Interaction Mesh）本身确实只考虑关键点的 3D 坐标，而不直接显式地包含旋转（Orientation）信息。
+2. 左手姿态跟踪正常但右手姿态跟踪不正常：
+
+    原因：人类骨骼和机器人骨骼的右手局部坐标系定义方式不一致，人类骨骼的左右手的局部坐标系方向相同，机器人骨骼的左右手的局部坐标系关于XZ平面镜像。
+
+    Note: 即使跟踪的是全局旋转，但是在计算手腕的全局旋转角时会用到相对父节点的局部旋转角，因此会受局部坐标系定义方式的影响。
 
 
-2. **序列二次规划 (SQP) 风格的微分 IK**：
-   - **迭代线性化**：将非线性逆运动学问题转化为每一帧内的 QP 子问题。通过多次迭代更新雅可比矩阵和约束状态，逼近高度非线性的运动轨迹。
-   - **信任区域 (Trust Region)**：引入二阶锥约束 (SOC) 限制单步关节增量 $\|\Delta q\| \le \delta$，确保泰勒一阶展开的线性近似有效性。
+3. 关节映射:
 
-3. **带硬约束的凸优化 (Constrained Convex Optimization)**：
-   - **求解器**：基于 `cvxpy` 与 `CLARABEL` 求解器。
-   - **非穿透约束**：利用 MuJoCo 的距离场 $\phi$ 与接触雅可比 $J_c$，强制执行 $J_c \Delta q \ge -\phi$，从物理层面防止自碰撞或环境穿透。
-   - **接触保持 (Contact Sticking)**：通过线性化约束维持支撑腿位置，确保重定向后的步态稳定性。
-
-4. **多目标权衡**：
-   - 优化函数综合了拉普拉斯特征追踪误差、名义姿态正则项以及运动平滑度代价。
+    GMR和Holosoma的关节映射不同。
+    不同数据格式的关节映射不同。
 
 
-## 8. 工程细节和易错点:
+
+
+
+
+
+
+
+## 7. 工程细节和易错点:
 
     1. 首先要注意四元数是xyzw还是wxyz，不同的库是不一样的。pinocchio库、scipy库和isaacgym都是xyzw。
 

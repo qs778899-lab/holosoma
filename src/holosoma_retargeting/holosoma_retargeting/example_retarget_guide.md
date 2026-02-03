@@ -100,7 +100,19 @@ python viser_player.py \
   
 python viser_player.py \
   --mjcf_path models/g1/scene_29dof_cue.xml \
-  --qpos_npz snooker_results/snooker4_original.npz
+  --qpos_npz snooker_results/snooker4_ori
+  ginal.npz
+
+
+
+
+
+
+
+
+
+
+  
 
 
 ```

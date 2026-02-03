@@ -563,6 +563,37 @@ class InteractionMeshRetargeter:
                     snooker_virtual_positions = self._compute_snooker_virtual_positions(
                         i, human_pos_full, human_quat_full, has_rot_data
                     )
+                    
+                    #! cube: 记录人类侧虚拟点位置到日志
+                    if i == 0 or (self.debug and i % 100 == 0):
+                        human_lh_pos = human_pos_full[i, self.left_hand_idx]
+                        human_rh_pos = human_pos_full[i, self.right_hand_idx]
+                        virtual_debug_msg = (
+                            f"\n=== [Human Virtual Points - Frame {i}] ===\n"
+                            f"  Human LeftHand pos:  [{human_lh_pos[0]:.4f}, {human_lh_pos[1]:.4f}, {human_lh_pos[2]:.4f}]\n"
+                            f"  Human RightHand pos: [{human_rh_pos[0]:.4f}, {human_rh_pos[1]:.4f}, {human_rh_pos[2]:.4f}]\n"
+                        )
+                        for vp_name, vp_pos in snooker_virtual_positions.items():
+                            virtual_debug_msg += f"  Human {vp_name}: [{vp_pos[0]:.4f}, {vp_pos[1]:.4f}, {vp_pos[2]:.4f}]\n"
+                        
+                        # 计算人类侧球杆方向和长度
+                        if "LeftHandBridge" in snooker_virtual_positions and "RightHandGrip" in snooker_virtual_positions:
+                            lhb = snooker_virtual_positions["LeftHandBridge"]
+                            rhg = snooker_virtual_positions["RightHandGrip"]
+                            cue_dir = lhb - rhg
+                            cue_len = np.linalg.norm(cue_dir)
+                            virtual_debug_msg += f"  Human Cue direction (Bridge - Grip): [{cue_dir[0]:.4f}, {cue_dir[1]:.4f}, {cue_dir[2]:.4f}]\n"
+                            virtual_debug_msg += f"  Human Cue length (Bridge to Grip): {cue_len:.4f} m\n"
+                        
+                        if "CueTip" in snooker_virtual_positions and "RightHandGrip" in snooker_virtual_positions:
+                            ct = snooker_virtual_positions["CueTip"]
+                            rhg = snooker_virtual_positions["RightHandGrip"]
+                            tip_dist = np.linalg.norm(ct - rhg)
+                            virtual_debug_msg += f"  Human CueTip to Grip distance: {tip_dist:.4f} m\n"
+                        
+                        print(virtual_debug_msg)
+                        with open(self.log_path, "a") as f:
+                            f.write(virtual_debug_msg)
 
                 human_mapped_joints = []
                 for key in active_link_keys:
@@ -679,6 +710,28 @@ class InteractionMeshRetargeter:
                     lh_idx_in_demo = self.demo_joints.index("LeftHand")
                     target_lh_quat = human_quat_full[i, lh_idx_in_demo]  # (w, x, y, z) 全局四元数
 
+                #! cube: 提取人类 RightHand 的全局四元数用于全局旋转 tracking（权重较低）
+                #! MIRROR FIX: 机器人左右手是关于 XZ 平面（Y=0）镜像的，需要对右手四元数做镜像变换
+                target_rh_quat = None
+                if has_rot_data and self.activate_snooker_tracking and "RightHand" in self.demo_joints:
+                    rh_idx_in_demo = self.demo_joints.index("RightHand")
+                    raw_rh_quat = human_quat_full[i, rh_idx_in_demo]  # (w, x, y, z) 原始全局四元数
+                    
+                    # 关于 XZ 平面镜像变换：(w, x, y, z) -> (w, x, -y, -z)
+                    # 这补偿了人类骨骼和机器人骨骼在右手定义上的镜像差异
+                    target_rh_quat = np.array([
+                        raw_rh_quat[0],   # w 不变
+                        raw_rh_quat[1],   # x 不变
+                        -raw_rh_quat[2],  # y 取反
+                        -raw_rh_quat[3]   # z 取反
+                    ])
+                    
+                    # 调试输出（仅首帧）
+                    if i == 0:
+                        print(f"\n[Mirror Transform] RightHand quaternion:")
+                        print(f"  Raw (wxyz):      [{raw_rh_quat[0]:.4f}, {raw_rh_quat[1]:.4f}, {raw_rh_quat[2]:.4f}, {raw_rh_quat[3]:.4f}]")
+                        print(f"  Mirrored (wxyz): [{target_rh_quat[0]:.4f}, {target_rh_quat[1]:.4f}, {target_rh_quat[2]:.4f}, {target_rh_quat[3]:.4f}]")
+
                 q, cost = self.iterate(
                     q_locked=q_locked_list[i],
                     q_n=q,
@@ -693,7 +746,8 @@ class InteractionMeshRetargeter:
                     n_iter=50 if i == 0 else 10,
                     frame_idx=i,
                     is_full_nominal=is_full_nominal, #! cube: 传递标记位
-                    target_lh_quat=target_lh_quat, #! wrist: 传递目标全局四元数
+                    target_lh_quat=target_lh_quat, #! wrist: 传递左手目标全局四元数
+                    target_rh_quat=target_rh_quat, #! cube: 传递右手目标全局四元数
                 )
                 if self.debug:
                     robot_link_positions = self._get_robot_link_positions(
@@ -787,7 +841,8 @@ class InteractionMeshRetargeter:
         init_t=False,
         frame_idx: int = 0,
         is_full_nominal: bool = False,
-        target_lh_quat: np.ndarray | None = None,  #! wrist: 新增 - 目标全局四元数 (wxyz)
+        target_lh_quat: np.ndarray | None = None,  #! wrist: 左手目标全局四元数 (wxyz)
+        target_rh_quat: np.ndarray | None = None,  #! cube: 右手目标全局四元数 (wxyz)
     ):
         """The main function to solve a single iteration of the DiffIK problem.
         Args:
@@ -868,6 +923,56 @@ class InteractionMeshRetargeter:
         # --- 增加严谨的调试逻辑：写入日志文件 ---
         if (frame_idx == 0) or (self.debug and frame_idx % 100 == 0):
             with open(self.log_path, "a") as f:
+                #! cube: 添加机器人侧虚拟点详细信息
+                f.write(f"\n=== [Robot Virtual Points - Frame {frame_idx}] ===\n")
+                
+                # 检查是否有 snooker 虚拟点
+                snooker_vp_names = ["LeftHandBridge", "RightHandGrip", "CueTip"]
+                has_snooker_vp = all(name in robot_link_keys for name in snooker_vp_names)
+                
+                if has_snooker_vp:
+                    # 获取机器人侧虚拟点位置（在 robot_pts_local 或 vertices 中）
+                    for vp_name in snooker_vp_names:
+                        vp_idx = robot_link_keys.index(vp_name)
+                        vp_pos = robot_pts_local[vp_idx]
+                        f.write(f"  Robot {vp_name}: [{vp_pos[0]:.4f}, {vp_pos[1]:.4f}, {vp_pos[2]:.4f}]\n")
+                    
+                    # 计算机器人侧球杆方向和长度
+                    lhb_idx = robot_link_keys.index("LeftHandBridge")
+                    rhg_idx = robot_link_keys.index("RightHandGrip")
+                    ct_idx = robot_link_keys.index("CueTip")
+                    
+                    robot_lhb = robot_pts_local[lhb_idx]
+                    robot_rhg = robot_pts_local[rhg_idx]
+                    robot_ct = robot_pts_local[ct_idx]
+                    
+                    robot_cue_dir = robot_lhb - robot_rhg
+                    robot_cue_len = np.linalg.norm(robot_cue_dir)
+                    robot_tip_dist = np.linalg.norm(robot_ct - robot_rhg)
+                    
+                    f.write(f"  Robot Cue direction (Bridge - Grip): [{robot_cue_dir[0]:.4f}, {robot_cue_dir[1]:.4f}, {robot_cue_dir[2]:.4f}]\n")
+                    f.write(f"  Robot Cue length (Bridge to Grip): {robot_cue_len:.4f} m\n")
+                    f.write(f"  Robot CueTip to Grip distance: {robot_tip_dist:.4f} m\n")
+                    
+                    # 获取手腕 link 的原始位置（用于对比偏移量效果）
+                    if "LeftHand" in robot_link_keys:
+                        lh_idx = robot_link_keys.index("LeftHand")
+                        lh_pos = robot_pts_local[lh_idx]
+                        f.write(f"  Robot LeftHand (wrist link): [{lh_pos[0]:.4f}, {lh_pos[1]:.4f}, {lh_pos[2]:.4f}]\n")
+                        offset_lhb = robot_lhb - lh_pos
+                        f.write(f"  Offset LeftHandBridge - LeftHand: [{offset_lhb[0]:.4f}, {offset_lhb[1]:.4f}, {offset_lhb[2]:.4f}]\n")
+                    
+                    if "RightHand" in robot_link_keys:
+                        rh_idx = robot_link_keys.index("RightHand")
+                        rh_pos = robot_pts_local[rh_idx]
+                        f.write(f"  Robot RightHand (wrist link): [{rh_pos[0]:.4f}, {rh_pos[1]:.4f}, {rh_pos[2]:.4f}]\n")
+                        offset_rhg = robot_rhg - rh_pos
+                        f.write(f"  Offset RightHandGrip - RightHand: [{offset_rhg[0]:.4f}, {offset_rhg[1]:.4f}, {offset_rhg[2]:.4f}]\n")
+                        offset_ct = robot_ct - rh_pos
+                        f.write(f"  Offset CueTip - RightHand: [{offset_ct[0]:.4f}, {offset_ct[1]:.4f}, {offset_ct[2]:.4f}]\n")
+                else:
+                    f.write("  (Snooker virtual points not active in this frame)\n")
+                
                 f.write(f"\n--- [LAPLACIAN MESH DETAIL - Frame {frame_idx}] ---\n")
                 # 1. 写入顶点信息
                 f.write(f"{'Index':<6} | {'Link/Point Name':<20} | {'Position (x, y, z)':<25}\n")
@@ -1074,23 +1179,67 @@ class InteractionMeshRetargeter:
                         
             except Exception as e:
                 if frame_idx == 0:
-                    print(f"[WARNING] Global rotation tracking failed: {e}")
+                    print(f"[WARNING] Left wrist global rotation tracking failed: {e}")
                     with open(self.log_path, "a") as f:
-                        f.write(f"\n[WARNING Frame {frame_idx}] Global rotation tracking failed: {e}\n")
+                        f.write(f"\n[WARNING Frame {frame_idx}] Left wrist global rotation tracking failed: {e}\n")
+
+        #! cube: 右手腕全局旋转 Tracking（权重较低）
+        # 使用旋转雅可比匹配机器人 right_wrist_yaw_link 的全局旋转到人类 RightHand 的全局旋转
+        right_rotation_tracking_added = False
+        if self.activate_snooker_tracking and snooker_alpha > 0 and target_rh_quat is not None:
+            try:
+                # 计算旋转雅可比和误差
+                J_rot_rh, rot_error_rh, current_quat_rh = self._calc_rotation_jacobian_and_error(
+                    q, "right_wrist_yaw_link", target_rh_quat
+                )
+                
+                # 右手腕权重较低（左手的一半），因为右手主要靠虚拟点约束
+                right_rotation_weight = 5.0 * snooker_alpha
+                
+                # CVXPY: minimize || rot_error - J_rot @ dqa ||^2
+                rot_cost_rh = right_rotation_weight * cp.sum_squares(
+                    cp.Constant(rot_error_rh) - cp.Constant(J_rot_rh) @ dqa
+                )
+                obj_terms.append(rot_cost_rh)
+                obj_names.append("right_wrist_rotation_tracking")
+                right_rotation_tracking_added = True
+                
+                # 详细调试信息
+                if (frame_idx == 0) or (self.debug and frame_idx % 100 == 0):
+                    rot_error_rh_deg = np.rad2deg(np.linalg.norm(rot_error_rh))
+                    debug_msg = (
+                        f"\n=== [Right Wrist Rotation Tracking - Frame {frame_idx}] ===\n"
+                        f"  snooker_alpha: {snooker_alpha:.4f}\n"
+                        f"  right_rotation_weight: {right_rotation_weight:.4f} (half of left wrist)\n"
+                        f"  target_quat (wxyz): [{target_rh_quat[0]:.4f}, {target_rh_quat[1]:.4f}, {target_rh_quat[2]:.4f}, {target_rh_quat[3]:.4f}]\n"
+                        f"  current_quat (wxyz): [{current_quat_rh[0]:.4f}, {current_quat_rh[1]:.4f}, {current_quat_rh[2]:.4f}, {current_quat_rh[3]:.4f}]\n"
+                        f"  rot_error (rotvec): [{rot_error_rh[0]:.4f}, {rot_error_rh[1]:.4f}, {rot_error_rh[2]:.4f}]\n"
+                        f"  rot_error magnitude: {rot_error_rh_deg:.2f} deg\n"
+                        f"  expected rotation cost: {right_rotation_weight * np.sum(rot_error_rh**2):.6f}\n"
+                    )
+                    print(debug_msg)
+                    with open(self.log_path, "a") as f:
+                        f.write(debug_msg)
+                        
+            except Exception as e:
+                if frame_idx == 0:
+                    print(f"[WARNING] Right wrist global rotation tracking failed: {e}")
+                    with open(self.log_path, "a") as f:
+                        f.write(f"\n[WARNING Frame {frame_idx}] Right wrist global rotation tracking failed: {e}\n")
 
         lap_term = cp.sum_squares(cp.multiply(sqrt_w3, lap_var - target_lap_vec))
         obj_terms.append(lap_term)
         obj_names.append("laplacian")
 
         # nominal tracking for selected indices
-        # ! cube: 逻辑解耦 —— 现在由 activate_general_nominal_tracking 控制是否进行“全身其他关节”的追踪
-        if self.activate_general_nominal_tracking and is_full_nominal and (w_nominal_tracking > 0) and (q_a_nominal is not None):
-            idx = np.array(self.track_nominal_indices, dtype=int)
-            if idx.size > 0:
-                z = dqa[idx] - (q_a_nominal[idx] - q_a_n_last[idx])
-                term = w_nominal_tracking * cp.sum_squares(z)
-                obj_terms.append(term)
-                obj_names.append("general_nominal")
+        # cube: 逻辑解耦 —— 现在由 activate_general_nominal_tracking 控制是否进行“全身其他关节”的追踪
+        # if self.activate_general_nominal_tracking and is_full_nominal and (w_nominal_tracking > 0) and (q_a_nominal is not None):
+        #     idx = np.array(self.track_nominal_indices, dtype=int)
+        #     if idx.size > 0:
+        #         z = dqa[idx] - (q_a_nominal[idx] - q_a_n_last[idx])
+        #         term = w_nominal_tracking * cp.sum_squares(z)
+        #         obj_terms.append(term)
+        #         obj_names.append("general_nominal")
 
         # Q_diag cost
         Qd = np.asarray(self.Q_diag, dtype=float).reshape(-1)
@@ -1159,7 +1308,8 @@ class InteractionMeshRetargeter:
         n_iter: int = 10,
         frame_idx: int = 0,
         is_full_nominal: bool = False,
-        target_lh_quat: np.ndarray | None = None,  #! wrist: 新增 - 目标全局四元数
+        target_lh_quat: np.ndarray | None = None,  #! wrist: 左手目标全局四元数
+        target_rh_quat: np.ndarray | None = None,  #! cube: 右手目标全局四元数
     ):
         """Iterate the solver for multiple iterations."""
         last_cost = np.inf
@@ -1178,7 +1328,8 @@ class InteractionMeshRetargeter:
                 init_t=init_t,
                 frame_idx=frame_idx,
                 is_full_nominal=is_full_nominal,
-                target_lh_quat=target_lh_quat,  #! wrist: 新增 - 传递目标全局四元数
+                target_lh_quat=target_lh_quat,  #! wrist: 传递左手目标全局四元数
+                target_rh_quat=target_rh_quat,  #! cube: 传递右手目标全局四元数
             )
             if np.isclose(cost, last_cost):
                 break
@@ -1670,7 +1821,7 @@ class InteractionMeshRetargeter:
 
             J = self._calc_contact_jacobian_from_point(body_id, pC_B)
             
-            #! cube: 修复虚拟点位置计算 - 必须考虑偏移量
+            #! cube: 虚拟点位置计算 - 必须考虑偏移量
             # 之前的 bug: pos_world = self.robot_data.xpos[body_id] 只是 body 原点
             # 正确的: pos_world = body原点 + 旋转矩阵 @ 局部偏移
             R_WB = self.robot_data.xmat[body_id].reshape(3, 3)
