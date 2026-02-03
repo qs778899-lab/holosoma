@@ -215,24 +215,52 @@ class InteractionMeshRetargeter:
         #! cube: Override wrist limits for snooker to prevent shaking
         # Note: task_constants is a SimpleNamespace populated with UPPERCASE properties from RobotConfig.
         # robot_type is lowercase, so it's not copied. We use ROBOT_NAME instead.
-        if self.snooker_frame_range is not None and "g1" in getattr(self.task_constants, "ROBOT_NAME", "").lower():
+        robot_name = getattr(self.task_constants, "ROBOT_NAME", "")
+        condition_met = self.snooker_frame_range is not None and "g1" in robot_name.lower()
+        
+        # 构建调试信息（同时输出到终端和日志）
+        wrist_debug_msg = f"\n=== [Wrist Limit Check] ===\n"
+        wrist_debug_msg += f"  snooker_frame_range: {self.snooker_frame_range}\n"
+        wrist_debug_msg += f"  ROBOT_NAME: {robot_name}\n"
+        wrist_debug_msg += f"  Condition met: {condition_met}\n"
+        
+        if condition_met:
             # 分开处理左右手腕：左手(26,27,28)，右手(33,34,35)
             left_wrist_indices = [26, 27, 28]
             right_wrist_indices = [33, 34, 35]
+            wrist_names = {26: "left_wrist_roll", 27: "left_wrist_pitch", 28: "left_wrist_yaw",
+                          33: "right_wrist_roll", 34: "right_wrist_pitch", 35: "right_wrist_yaw"}
+            
+            wrist_debug_msg += f"\n  [BEFORE] Wrist limits (MANUAL overrides):\n"
+            for idx in left_wrist_indices + right_wrist_indices:
+                if idx < len(self.q_a_lb):
+                    wrist_debug_msg += f"    {wrist_names[idx]} ({idx}): [{np.rad2deg(self.q_a_lb[idx]):.1f}°, {np.rad2deg(self.q_a_ub[idx]):.1f}°]\n"
             
             # 右手（握杆手）：完全放开限制，保证推杆和瞄准角度的灵活性
-            print(f"Releasing right wrist limits for Snooker task: {right_wrist_indices}")
             for idx in right_wrist_indices:
                 if idx < len(self.q_a_lb):
                     self.q_a_lb[idx] = complete_lower_limits[idx]
                     self.q_a_ub[idx] = complete_upper_limits[idx]
             
             # 左手（架杆手）：同样恢复物理范围，改用 Nominal Tracking 进行姿态引导
-            print(f"Releasing left wrist limits for Snooker task (using soft tracking): {left_wrist_indices}")
             for idx in left_wrist_indices:
                 if idx < len(self.q_a_lb):
                     self.q_a_lb[idx] = complete_lower_limits[idx]
                     self.q_a_ub[idx] = complete_upper_limits[idx]
+            
+            wrist_debug_msg += f"\n  [AFTER] Wrist limits (restored to XML physical limits):\n"
+            for idx in left_wrist_indices + right_wrist_indices:
+                if idx < len(self.q_a_lb):
+                    wrist_debug_msg += f"    {wrist_names[idx]} ({idx}): [{np.rad2deg(self.q_a_lb[idx]):.1f}°, {np.rad2deg(self.q_a_ub[idx]):.1f}°]\n"
+            wrist_debug_msg += f"  ✓ Wrist limits RELEASED for Snooker task\n"
+        else:
+            wrist_debug_msg += f"  ✗ Wrist limits NOT released (condition not met)\n"
+        
+        # 输出到终端
+        print(wrist_debug_msg)
+        # 同时写入日志文件
+        with open(self.log_path, "a") as f:
+            f.write(wrist_debug_msg)
 
         # Prevent too much waist twist
         self.Q_diag = np.zeros(self.nq_a) * 1e-3
@@ -1641,7 +1669,12 @@ class InteractionMeshRetargeter:
                 pC_B = np.array(virtual_offsets.get(name, [0.0, 0.0, 0.0]))
 
             J = self._calc_contact_jacobian_from_point(body_id, pC_B)
-            pos_world = self.robot_data.xpos[body_id]
+            
+            #! cube: 修复虚拟点位置计算 - 必须考虑偏移量
+            # 之前的 bug: pos_world = self.robot_data.xpos[body_id] 只是 body 原点
+            # 正确的: pos_world = body原点 + 旋转矩阵 @ 局部偏移
+            R_WB = self.robot_data.xmat[body_id].reshape(3, 3)
+            pos_world = self.robot_data.xpos[body_id] + R_WB @ pC_B
 
             if obj_frame:
                 p_XC = obj_rot_inv @ (pos_world - obj_pos)

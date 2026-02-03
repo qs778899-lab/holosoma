@@ -45,7 +45,7 @@ python examples/parallel_robot_retarget.py \
   --retargeter.foot-sticking-tolerance 0.02 \
   --max-workers 12 
 
-#增加左手腕的绝对位姿跟踪
+#增加左手腕的绝对旋转角度跟踪，不涉及position
 python examples/parallel_robot_retarget.py \
   --data-dir snooker_npy \
   --task-type robot_only \
@@ -57,7 +57,22 @@ python examples/parallel_robot_retarget.py \
   --retargeter.activate-snooker-laplacian False \
   --retargeter.activate-realtime-rotation-tracking False \
   --retargeter.activate-general-nominal-tracking False \
-  --retargeter.snooker-frame-range 0 1300 \
+  --retargeter.snooker-frame-range 0 1680 \
+  --max-workers 12
+
+#进一步增加球杆约束
+python examples/parallel_robot_retarget.py \
+  --data-dir snooker_npy \
+  --task-type robot_only \
+  --data_format nokov \
+  --save_dir snooker_results \
+  --task-config.object-name ground \
+  --task-config.ground-range -5 5 \
+  --retargeter.activate-snooker-tracking True \
+  --retargeter.activate-snooker-laplacian True \
+  --retargeter.activate-realtime-rotation-tracking False \
+  --retargeter.activate-general-nominal-tracking False \
+  --retargeter.snooker-frame-range 580 1300 \
   --max-workers 12
 
 ```
@@ -85,12 +100,25 @@ python viser_player.py \
   
 python viser_player.py \
   --mjcf_path models/g1/scene_29dof_cue.xml \
-  --qpos_npz snooker_results/snooker2_original.npz
+  --qpos_npz snooker_results/snooker4_original.npz
 
 
 ```
 
 ---
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 ## 5. 使用 Climbing 模式进行台球桌场景重定向
 

@@ -400,18 +400,30 @@ JOINTS_MAPPINGS = {
     #! foot: 增加两行
     ("nokov", "g1"): {
         "Hips": "pelvis_contour_link",               # 髋部
+
         "LeftUpLeg": "left_hip_pitch_link",          # 左大腿
         "RightUpLeg": "right_hip_pitch_link",        # 右大腿
+        # "LeftUpLeg": "left_hip_yaw_link",          # 左大腿
+        # "RightUpLeg": "right_hip_yaw_link",        # 右大腿
+
         "LeftLeg": "left_knee_link",                 # 左膝盖
         "RightLeg": "right_knee_link",               # 右膝盖
+
         "LeftArm": "left_shoulder_roll_link",        # 左大臂
         "RightArm": "right_shoulder_roll_link",       # 右大臂
+        # "LeftArm": "left_shoulder_yaw_link",        # 左大臂
+        # "RightArm": "right_shoulder_yaw_link",       # 右大臂
+
         "LeftForeArm": "left_elbow_link",            # 左小臂
         "RightForeArm": "right_elbow_link",           # 右小臂
+        # "LeftForeArm": "left_wrist_pitch_link",            # 左小臂
+        # "RightForeArm": "right_wrist_pitch_link",           # 右小臂
+
         "LeftFoot": "left_ankle_intermediate_1_link",  # 左脚踝
         "RightFoot": "right_ankle_intermediate_1_link", # 右脚踝
         "LeftFootMod": "left_ankle_roll_sphere_5_link", # 左脚末端修正
         "RightFootMod": "right_ankle_roll_sphere_5_link", # 右脚末端修正
+
         # "LeftHand": "left_rubber_hand_link",         
         # "RightHand": "right_rubber_hand_link",       
         "LeftHand": "left_wrist_yaw_link",        #! wrist
