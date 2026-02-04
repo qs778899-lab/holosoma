@@ -1884,10 +1884,10 @@ class InteractionMeshRetargeter:
             #! cube: 虚拟点位置计算 - 必须考虑偏移量
             # 之前的 bug: pos_world = self.robot_data.xpos[body_id] 只是 body 原点
             # 正确的: pos_world = body原点 + 旋转矩阵 @ 局部偏移
-            R_WB = self.robot_data.xmat[body_id].reshape(3, 3)
+            R_WB = self.robot_data.xmat[body_id].reshape(3, 3) # 取 body 的世界旋转矩阵
             pos_world = self.robot_data.xpos[body_id] + R_WB @ pC_B
 
-            if obj_frame:
+            if obj_frame: #只有当task type是object_interaction / climbing时，才需要将点位置转换到物体坐标系
                 p_XC = obj_rot_inv @ (pos_world - obj_pos)
                 J_XC = obj_rot_inv @ J
             else:
