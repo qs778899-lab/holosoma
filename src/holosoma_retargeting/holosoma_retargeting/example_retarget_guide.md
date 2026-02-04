@@ -57,7 +57,7 @@ python examples/robot_retarget.py \
   --save-dir snooker_results \
   --task-config.object-name ground \
   --task-config.ground-range -10 10 \
-  --retargeter.activate-snooker-tracking True \
+  --retargeter.activate-snooker-tracking False \
   --retargeter.activate-snooker-laplacian True \
   --retargeter.activate-realtime-rotation-tracking False \
   --retargeter.activate-general-nominal-tracking False \
