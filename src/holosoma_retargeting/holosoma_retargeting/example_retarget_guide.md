@@ -33,7 +33,6 @@ python data_utils/extract_global_positions.py \
 转换完成后，使用并行重定向脚本处理所有序列。
 
 ```bash
-cd ..
 
 python examples/parallel_robot_retarget.py \
   --data-dir snooker_npy \
@@ -41,33 +40,23 @@ python examples/parallel_robot_retarget.py \
   --data_format nokov \
   --save_dir snooker_results \
   --task-config.object-name ground \
-  --task-config.ground-range -5 5 \
-  --retargeter.foot-sticking-tolerance 0.02 \
-  --max-workers 12 
-
-#增加左手腕的绝对旋转角度跟踪，不涉及position
-python examples/parallel_robot_retarget.py \
-  --data-dir snooker_npy \
-  --task-type robot_only \
-  --data_format nokov \
-  --save_dir snooker_results \
-  --task-config.object-name ground \
-  --task-config.ground-range -5 5 \
+  --task-config.ground-range -10 10 \
   --retargeter.activate-snooker-tracking True \
   --retargeter.activate-snooker-laplacian False \
   --retargeter.activate-realtime-rotation-tracking False \
   --retargeter.activate-general-nominal-tracking False \
   --retargeter.snooker-frame-range 0 1680 \
+  --retargeter.foot-sticking-tolerance 0.02 \
   --max-workers 12
 
-#进一步增加球杆约束
-python examples/parallel_robot_retarget.py \
-  --data-dir snooker_npy \
+python examples/robot_retarget.py \
+  --data-path snooker_npy \
+  --task-name snooker2 \
   --task-type robot_only \
-  --data_format nokov \
-  --save_dir snooker_results \
+  --data-format nokov \
+  --save-dir snooker_results \
   --task-config.object-name ground \
-  --task-config.ground-range -5 5 \
+  --task-config.ground-range -10 10 \
   --retargeter.activate-snooker-tracking True \
   --retargeter.activate-snooker-laplacian True \
   --retargeter.activate-realtime-rotation-tracking False \
@@ -75,20 +64,21 @@ python examples/parallel_robot_retarget.py \
   --retargeter.laplacian-frame-range 580 1300 \
   --retargeter.wrist-tracking-frame-range 0 1704 \
   --retargeter.snooker-frame-range 580 1300 \
-  --max-workers 12
+  --retargeter.foot-sticking-tolerance 0.02 \
+  --retargeter.visualize \
+  --retargeter.debug \
+  --retargeter.visualization-interp-mult 1 \
+  --retargeter.smooth-weight 10.0 
 
 ```
 
-
 **参数说明：**
-- python examples/parallel_robot_retarget.py: 调用并行重定向主脚本，利用多核 CPU 同时处理多个文件。
-- --data-dir: 输入目录，脚本会遍历该目录下所有的 .npy 运动文件。
-- --task-type robot_only: 任务模式。robot_only 表示仅重定向机器人动作，不涉及物体交互或复杂地形。
-- --data_format : 输入数据格式。比如告知脚本以 LAFAN或者nokov 的骨骼结构和坐标规范来解析 .npy 文件。
-- --save_dir: 结果保存目录。每个 BVH 序列处理完后，会在此生成对应的 .npz 文件。
-- --task-config.object-name ground: 指定交互对象为地面。在 robot_only 模式下，这是保证机器人不穿模地面的关键配置。
-- --task-config.ground-range -10 10: 地面判定范围。定义从 -10m 到 10m 的区域为有效接触平面。
-- --retargeter.foot-sticking-tolerance 0.02: 足部贴地容差（单位：米）。当人体足部距离地面小于 2cm 时，算法会锁定机器人足部，防止产生“滑步”或“漂浮”感。数值越小要求越严苛，通常 0.01~0.03 之间效果较好。
+- --task-type robot_only/object_interaction/climbing: 任务模式
+- --task-config.object-name ground/largebox/multi_boxes: 交互对象
+- --task-config.ground-range -10 10: 定义了虚拟地面网格的物理范围，用于防止机器人脚部穿透地面
+- --retargeter.foot-sticking-tolerance 0.02: 足部贴地容差（单位：米）。当人体足部距离地面小于 2cm 时，算法会锁定机器人足部，防止产生“滑步”或“漂浮”感。
+可视化：蓝色点是人体关键点，绿色点是机器人实际点
+
 
 ## 4. 可视化结果
 
@@ -102,7 +92,7 @@ python viser_player.py \
   
 python viser_player.py \
   --mjcf_path models/g1/scene_29dof_cue.xml \
-  --qpos_npz snooker_results/snooker2_original.npz
+  --qpos_npz snooker_results/snooker2.npz
 
 
 
@@ -194,23 +184,32 @@ g1_29dof_w_snooker_table.xml  ──include──►  box_assets.xml  ──file
 ```bash
 cd holosoma/src/holosoma_retargeting/holosoma_retargeting
 
-python examples/parallel_robot_retarget.py \
-  --data-dir demo_data/snooker \
+python examples/robot_retarget.py \
+  --data-path snooker_npy \
+  --task-name snooker2 \
   --task-type climbing \
-  --data_format nokov \
-  --save_dir snooker_climbing_results \
+  --data-format nokov \
+  --save-dir snooker_results \
   --task-config.object-name snooker_table \
   --task-config.object-dir demo_data/snooker/snooker_table \
+  --task-config.ground-range -10 10 \
   --task-config.surface-weight-threshold 0.0 \
   --task-config.surface-weight-high 20 \
   --task-config.surface-weight-low 1 \
-  --retargeter.activate-snooker-tracking False \
-  --retargeter.activate-snooker-laplacian False \
+  --retargeter.activate-snooker-tracking True \
+  --retargeter.activate-snooker-laplacian True \
   --retargeter.activate-realtime-rotation-tracking False \
   --retargeter.activate-general-nominal-tracking False \
   --retargeter.activate-obj-non-penetration \
-  --retargeter.snooker-frame-range 0 1300 \
-  --max-workers 12
+  --retargeter.laplacian-frame-range 580 1300 \
+  --retargeter.wrist-tracking-frame-range 0 1704 \
+  --retargeter.snooker-frame-range 580 1300 \
+  --retargeter.foot-sticking-tolerance 0.02 \
+  --retargeter.visualize \
+  --retargeter.debug \
+  --retargeter.visualization-interp-mult 1 \
+  --retargeter.smooth-weight 10.0 
+
 ```
 
 ### 5.4 参数说明

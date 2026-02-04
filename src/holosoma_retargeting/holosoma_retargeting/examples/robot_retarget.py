@@ -475,9 +475,23 @@ def _compute_q_init_base(
     elif task_type == "climbing":
         if retargeter is None:
             raise ValueError("retargeter is required for climbing task")
-        _, human_quat_init = transform_from_human_to_world(
-            human_joints[0, 0, :3], object_poses[0], np.array([0.0, 0.0, 0.0]) #! scene: 因为npy文件有修改，每个关节有 7 个值（位置 + 四元数）。
-        )
+
+        #! scene
+        if data_format == "nokov":
+            # For static objects like snooker table, the human motion already contains
+            # the correct orientation relative to the environment.
+            # Use estimate_human_orientation instead of forcing X-axis towards object.
+            hips_joint_idx = constants.DEMO_JOINTS.index("Hips")
+            human_quat_init = estimate_human_orientation(human_joints, constants.DEMO_JOINTS)
+            pos_init = human_joints[0, hips_joint_idx, :3]
+        else:
+            # Original logic for moving objects or other formats
+            _, human_quat_init = transform_from_human_to_world(
+                human_joints[0, 0, :3], object_poses[0], np.array([0.0, 0.0, 0.0]) #! scene: 因为npy文件有修改，每个关节有 7 个值（位置 + 四元数）。
+            )
+            pos_init = human_joints[0, 0, :3]
+
+
         spine_joint_idx = retargeter.demo_joints.index("Spine1")
         # MuJoCo order: pos first, then quat
         # Note: human_joints may be (T, J, 7) with pos+quat, so only take first 3 (position)
@@ -543,6 +557,9 @@ def build_retargeter_kwargs_from_config(
         "activate_snooker_laplacian": retargeter_config.activate_snooker_laplacian,
         "activate_realtime_rotation_tracking": retargeter_config.activate_realtime_rotation_tracking,
         "activate_general_nominal_tracking": retargeter_config.activate_general_nominal_tracking,
+        "visualization_fps": retargeter_config.visualization_fps,
+        "visualization_interp_mult": retargeter_config.visualization_interp_mult,
+        "smooth_weight": retargeter_config.smooth_weight,
     }
     if task_type == "climbing":
         kwargs["nominal_tracking_tau"] = retargeter_config.nominal_tracking_tau

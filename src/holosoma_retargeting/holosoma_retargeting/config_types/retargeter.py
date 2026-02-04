@@ -78,3 +78,15 @@ class RetargeterConfig:
 
     activate_general_nominal_tracking: BoolWithExplicitValue = False
     """Whether to enable full-body nominal tracking (requires reference sequence)."""
+
+    visualization_fps: int = 30
+    """Initial FPS for visualization playback. Lower values reduce blur but may appear less smooth."""
+
+    visualization_interp_mult: int = 2
+    """Visual FPS multiplier for interpolation. Set to 1 to disable interpolation and reduce blur.
+    Higher values create smoother motion but may cause visual accumulation blur over time."""
+
+    smooth_weight: float = 0.2
+    """Weight for smoothness cost that penalizes changes between consecutive frames.
+    Higher values (e.g., 10.0) enforce stronger smoothness, reducing jitter but potentially making motion less responsive.
+    Lower values (e.g., 0.2) allow more frame-to-frame variation."""

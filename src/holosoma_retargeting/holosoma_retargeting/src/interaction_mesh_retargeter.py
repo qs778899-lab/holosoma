@@ -68,6 +68,9 @@ class InteractionMeshRetargeter:
         snooker_frame_range: list[int] | None = None,
         laplacian_frame_range: list[int] | None = None,
         wrist_tracking_frame_range: list[int] | None = None,
+        visualization_fps: int = 100,
+        visualization_interp_mult: int = 2,
+        smooth_weight: float = 0.2,
     ):
         """This kinematic retargeter solves the diffIK problem with hard constraints in SQP style.
         During each SQP iteration, the problem is solved with the following constraints and costs:
@@ -103,6 +106,8 @@ class InteractionMeshRetargeter:
         self.step_size = step_size
         self.visualize = visualize
         self.debug = debug
+        self.visualization_fps = visualization_fps
+        self.visualization_interp_mult = visualization_interp_mult
         self.demo_joints = task_constants.DEMO_JOINTS
         self.task_constants = task_constants
 
@@ -160,7 +165,7 @@ class InteractionMeshRetargeter:
 
         # Setup weights and parameters
         self.laplacian_weights = 10
-        self.smooth_weight = 0.2
+        self.smooth_weight = smooth_weight
         # Tolerance for foot sticking constraints in x, y.
         self.foot_sticking_tolerance = foot_sticking_tolerance
 
@@ -857,8 +862,8 @@ class InteractionMeshRetargeter:
                 viser_object=self.viser_object,
                 object_base_frame=getattr(self, "object_base", None) if self.viser_object else None,
                 contains_object_in_qpos=bool(self.viser_object) and bool(self.has_dynamic_object),
-                initial_fps=30,
-                initial_interp_mult=2,
+                initial_fps=self.visualization_fps,
+                initial_interp_mult=self.visualization_interp_mult,
                 loop=False,
             )
 
@@ -1207,7 +1212,7 @@ class InteractionMeshRetargeter:
                 # 线性化：rot_error_new ≈ rot_error - J_rot @ dqa
                 # Cost: ||rot_error - J_rot @ dqa||^2
                 # 最小化 dqa 使旋转误差趋近于 0
-                rotation_tracking_weight = 10.0 * wrist_tracking_alpha
+                rotation_tracking_weight = 6.0 * wrist_tracking_alpha
                 
                 # CVXPY: minimize || rot_error - J_rot @ dqa ||^2
                 rot_cost = rotation_tracking_weight * cp.sum_squares(
@@ -1252,7 +1257,7 @@ class InteractionMeshRetargeter:
                 )
                 
                 # 右手腕权重较低（左手的一半），因为右手主要靠虚拟点约束
-                right_rotation_weight = 5.0 * wrist_tracking_alpha
+                right_rotation_weight = 1.2 * wrist_tracking_alpha
                 
                 # CVXPY: minimize || rot_error - J_rot @ dqa ||^2
                 rot_cost_rh = right_rotation_weight * cp.sum_squares(
