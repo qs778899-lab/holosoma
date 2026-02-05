@@ -3,8 +3,6 @@
 
 ## 1. 准备工作
 
-首先，确保安装了必要的依赖项，并获取 LAFAN 数据处理工具。
-
 ```bash
 cd src/holosoma_retargeting/holosoma_retargeting/data_utils/
 
@@ -28,9 +26,7 @@ python data_utils/extract_global_positions.py \
   --data_format nokov
 ```
 
-## 3. 执行批量重定向
-
-转换完成后，使用并行重定向脚本处理所有序列。
+## 3. 执行重定向
 
 ```bash
 
@@ -48,6 +44,7 @@ python examples/parallel_robot_retarget.py \
   --retargeter.snooker-frame-range 0 1680 \
   --retargeter.foot-sticking-tolerance 0.02 \
   --max-workers 12
+
 
 python examples/robot_retarget.py \
   --data-path snooker_npy \
@@ -82,8 +79,6 @@ python examples/robot_retarget.py \
 
 ## 4. 可视化结果
 
-重定向完成后，你可以通过以下命令查看生成的机器人运动效果：
-
 ```bash
 
 python viser_player.py \
@@ -94,22 +89,9 @@ python viser_player.py \
   --mjcf_path models/g1/scene_29dof_cue.xml \
   --qpos_npz snooker_results/snooker2.npz
 
-
-
-
-
-
-
-
-
-
-
-
-
 ```
 
 ---
-
 
 
 

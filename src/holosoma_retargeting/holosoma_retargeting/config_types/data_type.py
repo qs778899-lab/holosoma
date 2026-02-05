@@ -253,6 +253,8 @@ NOKOV_DEMO_JOINTS = [
     "LeftArm",
     "LeftForeArm",
     "LeftHand",
+    "LeftHandMiddle",
+    "RightHandMiddle",
     "LeftFootMod",
     "RightFootMod",
 ]
