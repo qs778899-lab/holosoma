@@ -620,9 +620,6 @@ def create_scaled_multi_boxes_urdf(
         sx, sy, sz = new_scale
         output_path = urdf_path.replace(".urdf", f"_scaled_{sx:.2f}_{sy:.2f}_{sz:.2f}.urdf")
 
-    if Path(output_path).exists():
-        return output_path
-
     with open(urdf_path) as f:
         content = f.read()
 
@@ -630,6 +627,25 @@ def create_scaled_multi_boxes_urdf(
     replacement = f'scale="{new_scale[0]} {new_scale[1]} {new_scale[2]}"'
     content = re.sub(pattern, replacement, content)
 
+    #! scene:这部分代码暂时用不上因为不涉及多个交互物体。 Scale all origin xyz attributes to keep world positions consistent.
+    origin_pattern = r'(<origin[^>]*\bxyz=")([^"]+)(")'
+    sx, sy, sz = new_scale
+
+    def _scale_xyz(match):
+        raw_xyz = match.group(2).split()
+        if len(raw_xyz) != 3:
+            return match.group(0)
+        try:
+            x, y, z = (float(raw_xyz[0]), float(raw_xyz[1]), float(raw_xyz[2]))
+        except ValueError:
+            return match.group(0)
+        scaled_xyz = f"{x * sx:.6g} {y * sy:.6g} {z * sz:.6g}"
+        return f'{match.group(1)}{scaled_xyz}{match.group(3)}'
+
+    content = re.sub(origin_pattern, _scale_xyz, content)
+
+    
+    
     with open(output_path, "w") as f:
         f.write(content)
 
@@ -658,11 +674,48 @@ def create_scaled_multi_boxes_xml(
 
     return output_path
 
+#! scene
+def create_scaled_box_body_xml(
+    xml_path: str,
+    new_scale: tuple,
+    output_path: str | None = None,
+):
+    """Scale geom positions in box_body.xml for climbing objects."""
+    if output_path is None:
+        sx, sy, sz = new_scale
+        output_path = xml_path.replace(".xml", f"_scaled_{sx:.2f}_{sy:.2f}_{sz:.2f}.xml")
+
+    with open(xml_path) as f:
+        content = f.read()
+
+    sx, sy, sz = new_scale
+    geom_pos_pattern = r'(<geom[^>]*\bpos=")([^"]+)(")'
+
+    def _scale_geom_pos(match):
+        raw_pos = match.group(2).split()
+        if len(raw_pos) != 3:
+            return match.group(0)
+        try:
+            x, y, z = (float(raw_pos[0]), float(raw_pos[1]), float(raw_pos[2]))
+        except ValueError:
+            return match.group(0)
+        scaled_pos = f"{x * sx:.6g} {y * sy:.6g} {z * sz:.6g}"
+        return f'{match.group(1)}{scaled_pos}{match.group(3)}'
+
+    content = re.sub(geom_pos_pattern, _scale_geom_pos, content)
+
+    with open(output_path, "w") as f:
+        f.write(content)
+
+    return output_path
+
+
 
 def create_new_scene_xml_file(
     ori_scene_xml_path: str,
     new_scale: tuple,
     new_object_asset_xml_path: str,
+    new_object_body_xml_path: str | None = None,
     output_path: str | None = None,
 ):
     if output_path is None:
@@ -676,6 +729,14 @@ def create_new_scene_xml_file(
     pattern = r'file="box_assets\.xml"'
     replacement = f'file="{new_asset}"'
     content = re.sub(pattern, replacement, content)
+
+    #! scene
+    if new_object_body_xml_path is not None:
+        new_body = new_object_body_xml_path.split("/")[-1]
+        body_pattern = r'file="box_body\.xml"'
+        body_replacement = f'file="{new_body}"'
+        content = re.sub(body_pattern, body_replacement, content)
+
 
     with open(output_path, "w") as f:
         f.write(content)

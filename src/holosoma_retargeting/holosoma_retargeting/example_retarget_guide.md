@@ -99,12 +99,6 @@ python viser_player.py \
 
 
 
-
-
-
-
-
-
 ## 5. 使用 Climbing 模式进行台球桌场景重定向
 
 当需要让机器人与静态物体（如台球桌）进行交互时，可以使用 `climbing` 任务类型。
@@ -118,7 +112,7 @@ demo_data/snooker/snooker_table/
 │
 │  ═══════════════ Retargeting 核心文件（MuJoCo 仿真） ═══════════════
 │
-├── g1_29dof_w_snooker_table.xml   # 完整场景 XML（机器人 + 球桌）
+├── g1_29dof_w_snooker_table.xml   # 完整场景架构的XML，但球桌的具体定义在include文件中
 │   ├── <include file="box_assets.xml"/> 
 │   └── <include file="box_body.xml"/>   
 │
@@ -127,14 +121,9 @@ demo_data/snooker/snooker_table/
 │
 ├── box_body.xml                   # MuJoCo 几何体定义如位置信息（静态 geom）
 │   └── 引用 box_assets.xml 中定义的 mesh
-│    这个obj文件和xml文件的区别是？都含有table的位置信息等？
+│    
 ├── snooker_table.obj              # 3D mesh 文件（顶点 + 面片）
 │   └── 被 MuJoCo 加载 + 被 load_object_data() 用于表面点采样
-│
-│  ═══════════════ 可视化文件（Viser） ═══════════════
-│
-├── snooker_table.urdf             # 球桌 URDF 文件
-│   └── 引用 snooker_table.obj
 │
 │  ═══════════════ 工具和数据 ═══════════════
 │
@@ -149,8 +138,10 @@ g1_29dof_w_snooker_table.xml  ──include──►  box_assets.xml  ──file
 ```
 
 > **注意**: 
-> - Retargeting 时 MuJoCo 加载 `g1_29dof_w_snooker_table.xml`，它通过 include 依赖其他文件
-> - 可视化时使用 `models/g1/scene_29dof_cue.xml`（G1 适配尺寸）或 `snooker_table.urdf`
+实际 retarget 会用到的模型文件（缩放后）：g1_29dof_w_snooker_table_scaled_0.74_0.74_0.74.xml, box_assets_scaled_0.74_0.74_0.74.xml, box_body_scaled_0.74_0.74_0.74.xml, snooker_table.obj（不生成新 obj文件，只在加载时缩放。因为缩放是在 box_assets_scaled_*.xml 的 mesh scale="..." 上完成的；另外交互点采样也会用 smpl_scale 直接缩放点云）。
+
+
+
 
 ### 5.2 球桌参数说明
 
@@ -176,9 +167,9 @@ python examples/robot_retarget.py \
   --task-config.object-dir demo_data/snooker/snooker_table \
   --task-config.ground-range -10 10 \
   --task-config.surface-weight-threshold 0.0 \
-  --task-config.surface-weight-high 20 \。
+  --task-config.surface-weight-high 20 \
   --task-config.surface-weight-low 1 \
-  --retargeter.activate-snooker-tracking True \
+  --retargeter.activate-snooker-tracking False \
   --retargeter.activate-snooker-laplacian True \
   --retargeter.activate-realtime-rotation-tracking False \
   --retargeter.activate-general-nominal-tracking False \

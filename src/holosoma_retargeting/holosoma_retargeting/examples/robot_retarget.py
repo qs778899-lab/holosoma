@@ -34,6 +34,7 @@ from holosoma_retargeting.src.utils import (  # noqa: E402
     augment_object_poses,
     calculate_scale_factor,
     create_new_scene_xml_file,
+    create_scaled_box_body_xml,
     create_scaled_multi_boxes_urdf,
     create_scaled_multi_boxes_xml,
     estimate_human_orientation,
@@ -225,18 +226,17 @@ def load_motion_data(
             human_joints = transform_y_up_to_z_up(human_joints)
             smpl_scale = motion_data_config.default_scale_factor or 0.01
             
+
         elif data_format == "nokov":
             npy_path = data_path / f"{task_name}.npy"
             if not npy_path.exists():
                 raise FileNotFoundError(f"NOKOV data file not found: {npy_path}")
-
             human_joints = np.load(str(npy_path))
-
             # Use GMR-style transformation for Nokov: [x, y, z] -> [x, -z, y]
             # This handles the forward direction correctly for Nokov BVH
             rot_matrix = np.array([[1, 0, 0], [0, 0, -1], [0, 1, 0]])
 
-            #! cube: 适配 7D 数据 (pos + quat)
+            #! cube: 如果 human_joints 是 7D，就同时旋转位置和四元数。保持姿态与位置一致，防止方向错乱。
             if human_joints.shape[-1] == 7:
                 # 7D: (pos, quat[w,x,y,z]) -> rotate both position and orientation
                 human_pos = human_joints[..., :3]
@@ -251,7 +251,6 @@ def load_motion_data(
                 human_joints = np.concatenate([human_pos, human_quat], axis=-1)
             else:
                 human_joints = (rot_matrix @ human_joints.reshape(-1, 3).T).T.reshape(human_joints.shape)
-            
             # Calculate scale based on human height if not provided
             if motion_data_config.default_scale_factor:
                 smpl_scale = motion_data_config.default_scale_factor
@@ -264,6 +263,8 @@ def load_motion_data(
                 total_height = human_height * 2.0 
                 smpl_scale = constants.ROBOT_HEIGHT / total_height
                 logger.info(f"Estimated human height: {total_height:.2f}m, scale: {smpl_scale:.4f}")
+
+
 
         elif data_format == "smplh":  # smplh
             pt_path = data_path / f"{task_name}.pt"
@@ -331,7 +332,8 @@ def load_motion_data(
         # nokov data might already be downsampled or high-freq, but we stick to the existing logic
         human_joints = np.load(str(npy_file))[::downsample]
 
-        if data_format == "nokov":
+        #! scene
+        if data_format == "nokov": #和task type 为task-only时一样，需要进行坐标系转换
             # Keep Nokov consistent with robot_only: [x, y, z] -> [x, -z, y]
             rot_matrix = np.array([[1, 0, 0], [0, 0, -1], [0, 1, 0]])
 
@@ -348,6 +350,8 @@ def load_motion_data(
                 human_joints = np.concatenate([human_pos, human_quat], axis=-1)
             else:
                 human_joints = (rot_matrix @ human_joints.reshape(-1, 3).T).T.reshape(human_joints.shape)
+        
+        
         num_frames = human_joints.shape[0]
         object_poses = np.tile(np.array([[1, 0, 0, 0, 0, 0, 0]]), (num_frames, 1))
         default_human_height = motion_data_config.default_human_height or 1.78
@@ -408,6 +412,7 @@ def setup_object_data(
 
         # Setup climbing-specific object
         box_asset_xml = object_dir / "box_assets.xml"
+        box_body_xml = object_dir / "box_body.xml" #! scene
         scene_xml_name = Path(constants.ROBOT_URDF_FILE).name.replace(".urdf", f"_w_{constants.OBJECT_NAME}.xml")
         scene_xml_file = object_dir / scene_xml_name
         # Set SCENE_XML_FILE in constants BEFORE creating retargeter (needed for temp_retargeter)
@@ -442,7 +447,19 @@ def setup_object_data(
         scale_factors = tuple(float(value) for value in (object_scale * smpl_scale))
         object_urdf_file = create_scaled_multi_boxes_urdf(constants.OBJECT_URDF_FILE, scale_factors)
         object_asset_xml_path = create_scaled_multi_boxes_xml(str(box_asset_xml), scale_factors)
-        new_scene_xml_path = create_new_scene_xml_file(str(scene_xml_file), scale_factors, object_asset_xml_path)
+        
+        #! scene
+        object_body_xml_path = None
+        if box_body_xml.exists():
+            object_body_xml_path = create_scaled_box_body_xml(str(box_body_xml), scale_factors)
+        new_scene_xml_path = create_new_scene_xml_file(
+            str(scene_xml_file),
+            scale_factors,
+            object_asset_xml_path,
+            new_object_body_xml_path=object_body_xml_path,
+        )
+        
+        
         constants.SCENE_XML_FILE = new_scene_xml_path
 
         return object_local_pts, object_local_pts_demo, object_urdf_file
@@ -514,9 +531,12 @@ def _compute_q_init_base(
             pos_init = human_joints[0, hips_joint_idx, :3]
         else:
             # Original logic for moving objects or other formats
-        _, human_quat_init = transform_from_human_to_world(
-                human_joints[0, 0, :3], object_poses[0], np.array([0.0, 0.0, 0.0]) #! scene: 因为npy文件有修改，每个关节有 7 个值（位置 + 四元数）。
-        )
+            #! scene: 因为npy文件有修改，每个关节有 7 个值（位置 + 四元数）。
+            _, human_quat_init = transform_from_human_to_world(
+                human_joints[0, 0, :3],
+                object_poses[0],
+                np.array([0.0, 0.0, 0.0]),
+            )
             pos_init = human_joints[0, 0, :3]
 
 
