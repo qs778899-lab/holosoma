@@ -122,7 +122,7 @@ $$ \text{s.t. } A \Delta q \le b $$
 
     结果（Link）：使得机器人的 Link 上的特定点与人类的关节坐标尽量重合。
 
-2. urdf 和 xml 模型文件格式
+2. urdf , xml , obj, mesh, geom等
 
     * URDF：主要用于描述单个机器人的运动学结构（树状结构，只有一个 Root）。
 

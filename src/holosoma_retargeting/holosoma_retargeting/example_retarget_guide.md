@@ -119,15 +119,15 @@ demo_data/snooker/snooker_table/
 │  ═══════════════ Retargeting 核心文件（MuJoCo 仿真） ═══════════════
 │
 ├── g1_29dof_w_snooker_table.xml   # 完整场景 XML（机器人 + 球桌）
-│   ├── <include file="box_assets.xml"/>
-│   └── <include file="box_body.xml"/>
+│   ├── <include file="box_assets.xml"/> 
+│   └── <include file="box_body.xml"/>   
 │
 ├── box_assets.xml                 # MuJoCo 资产定义
 │   └── <mesh file="snooker_table.obj"/>
 │
-├── box_body.xml                   # MuJoCo 几何体定义（静态 geom）
+├── box_body.xml                   # MuJoCo 几何体定义如位置信息（静态 geom）
 │   └── 引用 box_assets.xml 中定义的 mesh
-│
+│    这个obj文件和xml文件的区别是？都含有table的位置信息等？
 ├── snooker_table.obj              # 3D mesh 文件（顶点 + 面片）
 │   └── 被 MuJoCo 加载 + 被 load_object_data() 用于表面点采样
 │
@@ -168,7 +168,7 @@ cd holosoma/src/holosoma_retargeting/holosoma_retargeting
 
 python examples/robot_retarget.py \
   --data-path snooker_npy \
-  --task-name snooker2 \
+  --task-name snooker3 \
   --task-type climbing \
   --data-format nokov \
   --save-dir snooker_results \
@@ -176,7 +176,7 @@ python examples/robot_retarget.py \
   --task-config.object-dir demo_data/snooker/snooker_table \
   --task-config.ground-range -10 10 \
   --task-config.surface-weight-threshold 0.0 \
-  --task-config.surface-weight-high 20 \
+  --task-config.surface-weight-high 20 \。
   --task-config.surface-weight-low 1 \
   --retargeter.activate-snooker-tracking True \
   --retargeter.activate-snooker-laplacian True \

@@ -150,11 +150,11 @@ def validate_config(cfg: RetargetingConfig) -> None:
             f"Add your format to DEMO_JOINTS_REGISTRY in config_types/data_type.py"
         )
 
-    # Task-specific format requirements
-    if cfg.task_type == "climbing" and cfg.data_format not in (None, "mocap"):
-        raise ValueError("Climbing task requires 'mocap' data format")
-    if cfg.task_type == "object_interaction" and cfg.data_format not in (None, "smplh"):
-        raise ValueError("Object interaction requires 'smplh' data format")
+    #! scene : Task-specific format requirements
+    if cfg.task_type == "climbing" and cfg.data_format not in (None, "mocap", "nokov"):
+        raise ValueError("Climbing task requires 'mocap' or 'nokov' data format")
+    if cfg.task_type == "object_interaction" and cfg.data_format not in (None, "smplh", "nokov"):
+        raise ValueError("Object interaction requires 'smplh' or 'nokov' data format")
     # robot_only accepts any format in the registry (already validated above)
 
 
@@ -312,15 +312,42 @@ def load_motion_data(
         smpl_scale = calculate_scale_factor(task_name, constants.ROBOT_HEIGHT)
 
     elif task_type == "climbing":
+        # First try task_dir = data_path / task_name (for multi-box climb data structure)
         task_dir = data_path / task_name
         npy_files = list(task_dir.glob("*.npy"))
+        
+        # If not found, and it's nokov, try looking directly for task_name.npy in data_path
+        if not npy_files and data_format == "nokov":
+            npy_file_path = data_path / f"{task_name}.npy"
+            if npy_file_path.exists():
+                npy_files = [npy_file_path]
+        
         if not npy_files:
-            raise FileNotFoundError(f"No .npy file found in {task_dir}")
+            raise FileNotFoundError(f"No .npy file found in {task_dir} or as {data_path / f'{task_name}.npy'}")
 
         npy_file = npy_files[0]
-        # MOCAP-specific downsample factor
+        # MOCAP-specific downsample factor (for climbing)
         downsample = 4
+        # nokov data might already be downsampled or high-freq, but we stick to the existing logic
         human_joints = np.load(str(npy_file))[::downsample]
+
+        if data_format == "nokov":
+            # Keep Nokov consistent with robot_only: [x, y, z] -> [x, -z, y]
+            rot_matrix = np.array([[1, 0, 0], [0, 0, -1], [0, 1, 0]])
+
+            if human_joints.shape[-1] == 7:
+                human_pos = human_joints[..., :3]
+                human_quat = human_joints[..., 3:]
+
+                human_pos = (rot_matrix @ human_pos.reshape(-1, 3).T).T.reshape(human_pos.shape)
+
+                rot = R.from_matrix(rot_matrix)
+                quat_rot = R.from_quat(human_quat.reshape(-1, 4), scalar_first=True)
+                human_quat = (rot * quat_rot).as_quat(scalar_first=True).reshape(human_quat.shape)
+
+                human_joints = np.concatenate([human_pos, human_quat], axis=-1)
+            else:
+                human_joints = (rot_matrix @ human_joints.reshape(-1, 3).T).T.reshape(human_joints.shape)
         num_frames = human_joints.shape[0]
         object_poses = np.tile(np.array([[1, 0, 0, 0, 0, 0, 0]]), (num_frames, 1))
         default_human_height = motion_data_config.default_human_height or 1.78
@@ -482,13 +509,14 @@ def _compute_q_init_base(
             # the correct orientation relative to the environment.
             # Use estimate_human_orientation instead of forcing X-axis towards object.
             hips_joint_idx = constants.DEMO_JOINTS.index("Hips")
-            human_quat_init = estimate_human_orientation(human_joints, constants.DEMO_JOINTS)
+            # FIX: Only pass positions (first 3 columns) to orientation estimator
+            human_quat_init = estimate_human_orientation(human_joints[:, :, :3], constants.DEMO_JOINTS)
             pos_init = human_joints[0, hips_joint_idx, :3]
         else:
             # Original logic for moving objects or other formats
-            _, human_quat_init = transform_from_human_to_world(
+        _, human_quat_init = transform_from_human_to_world(
                 human_joints[0, 0, :3], object_poses[0], np.array([0.0, 0.0, 0.0]) #! scene: 因为npy文件有修改，每个关节有 7 个值（位置 + 四元数）。
-            )
+        )
             pos_init = human_joints[0, 0, :3]
 
 
