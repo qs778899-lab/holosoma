@@ -217,7 +217,9 @@ $$ \text{s.t. } A \Delta q \le b $$
 
     改进：[x, y, z] -> [x, -z, y]，等价于绕 X 轴旋转 +90°（右手系）。
 
+6. holosoma进行retarget的task type是climbing时,球桌的位置不合理，表现为球桌桌面在地面整个陷入地面里：
 
+    
 
 
 

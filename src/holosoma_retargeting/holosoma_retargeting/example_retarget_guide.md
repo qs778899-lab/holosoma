@@ -116,25 +116,22 @@ demo_data/snooker/snooker_table/
 │   ├── <include file="box_assets.xml"/> 
 │   └── <include file="box_body.xml"/>   
 │
-├── box_assets.xml                 # MuJoCo 资产定义
-│   └── <mesh file="snooker_table.obj"/>
+├── box_assets.xml                 # MuJoCo 材质定义（material）
+│   └── <material name="snooker_table_material" .../>
+│   └── <material name="snooker_leg_material" .../>
 │
-├── box_body.xml                   # MuJoCo 几何体定义如位置信息（静态 geom）
-│   └── 引用 box_assets.xml 中定义的 mesh
+├── box_body.xml                   # MuJoCo 几何体定义（使用 box + cylinder primitives）
+│   └── <geom type="box" .../>     # 桌面
+│   └── <geom type="cylinder" .../> # 4条桌腿
 │    
-├── snooker_table.obj              # 3D mesh 文件（顶点 + 面片）
-│   └── 被 MuJoCo 加载 + 被 load_object_data() 用于表面点采样
+├── snooker_table.obj              # 仅用于表面点采样（load_object_data），不参与 MuJoCo 几何
+│   
 │
 │  ═══════════════ 工具和数据 ═══════════════
 │
 ├── generate_snooker_mesh.py       # 生成 snooker_table.obj 的脚本
 └── your_motion_data.npy           # 放置你的 Mocap 数据
 ```
-
-**文件引用关系：**
-```
-g1_29dof_w_snooker_table.xml  ──include──►  box_assets.xml  ──file──►  snooker_table.obj
-                              ──include──►  box_body.xml    ──mesh──►  (引用 box_assets.xml 中的 mesh)
 ```
 
 > **注意**: 
@@ -199,14 +196,14 @@ python examples/robot_retarget.py \
 
 #### 表面采样权重参数详解
 
-这些参数控制从 mesh 文件采样交互点时的权重分布：
+这些参数控制从 OBJ 文件（`snooker_table.obj`）采样交互点时的权重分布：
 
 ```python
 # 采样逻辑（简化）
 weight = surface_weight_high if point.z > threshold else surface_weight_low
 ```
 
-**球桌 mesh 的局部坐标系**（以桌面中心为原点）：
+**球桌 OBJ 文件的局部坐标系**（用于表面点采样，以桌面中心为原点）：
 ```
 z=+0.04  ──────────────  桌面顶部（交互表面）
 z= 0.00  ──────────────  桌面中心  
@@ -232,9 +229,12 @@ python viser_player.py \
 
 如需修改球桌尺寸或位置，编辑以下文件：
 
-1. **修改 mesh**: 编辑 `generate_snooker_mesh.py` 中的参数，重新运行生成新的 `.obj` 文件
-2. **修改位置**: 同时更新以下文件中的位置：
-   - `box_body.xml`: `pos="x y z"` 属性
-   - `snooker_table.urdf`: `<origin xyz="x y z" .../>` 
+1. **修改 MuJoCo 几何**（主要方式）：
+   - `box_body.xml`: 修改 `<geom type="box" size="...">` 和 `<geom type="cylinder" size="...">` 的 `size` 和 `pos` 属性
+   - 同时更新 `snooker_table.urdf` 中对应的 `<box size="...">`、`<cylinder radius/length="...">` 和 `<origin xyz="...">`
    - `scene_29dof_cue.xml`（可选，用于可视化）
+
+2. **修改表面采样用的 OBJ**（仅影响交互点采样）：
+   - 编辑 `generate_snooker_mesh.py` 中的参数，重新运行生成新的 `.obj` 文件
+   - 注意：OBJ 文件仅用于 `load_object_data` 的表面点采样，不影响 MuJoCo 的几何和碰撞
 

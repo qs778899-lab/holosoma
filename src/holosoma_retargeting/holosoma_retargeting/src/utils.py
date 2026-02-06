@@ -615,7 +615,14 @@ def create_scaled_multi_boxes_urdf(
     new_scale: tuple,
     output_path: str | None = None,
 ):
-    """Read multi_boxes.urdf and generate scaled version."""
+    """Read URDF and generate scaled version.
+    
+    Scales:
+    - mesh scale="..." attributes
+    - origin xyz="..." attributes (joint positions)
+    - box size="..." attributes (full dimensions)
+    - cylinder radius="..." and length="..." attributes
+    """
     if output_path is None:
         sx, sy, sz = new_scale
         output_path = urdf_path.replace(".urdf", f"_scaled_{sx:.2f}_{sy:.2f}_{sz:.2f}.urdf")
@@ -623,13 +630,15 @@ def create_scaled_multi_boxes_urdf(
     with open(urdf_path) as f:
         content = f.read()
 
+    sx, sy, sz = new_scale #! scene
+    
+    # Scale mesh scale attributes
     pattern = r'scale="[^"]*"'
     replacement = f'scale="{new_scale[0]} {new_scale[1]} {new_scale[2]}"'
     content = re.sub(pattern, replacement, content)
 
-    #! scene:这部分代码暂时用不上因为不涉及多个交互物体。 Scale all origin xyz attributes to keep world positions consistent.
+    #! scene: 这部分代码暂时用不上因为不涉及多个交互物体。 Scale origin xyz attributes (joint positions)
     origin_pattern = r'(<origin[^>]*\bxyz=")([^"]+)(")'
-    sx, sy, sz = new_scale
 
     def _scale_xyz(match):
         raw_xyz = match.group(2).split()
@@ -643,9 +652,47 @@ def create_scaled_multi_boxes_urdf(
         return f'{match.group(1)}{scaled_xyz}{match.group(3)}'
 
     content = re.sub(origin_pattern, _scale_xyz, content)
+    
+    #! scene: Scale box size attributes (URDF uses full size, not half)
+    box_pattern = r'(<box[^>]*\bsize=")([^"]+)(")'
+    
+    def _scale_box(match):
+        raw_size = match.group(2).split()
+        if len(raw_size) != 3:
+            return match.group(0)
+        try:
+            x, y, z = (float(raw_size[0]), float(raw_size[1]), float(raw_size[2]))
+        except ValueError:
+            return match.group(0)
+        scaled_size = f"{x * sx:.6g} {y * sy:.6g} {z * sz:.6g}"
+        return f'{match.group(1)}{scaled_size}{match.group(3)}'
+    
+    content = re.sub(box_pattern, _scale_box, content)
+    
+    # Scale cylinder radius and length attributes
+    # radius scaled by avg(sx, sy), length scaled by sz
+    r_scale = (sx + sy) / 2
+    
+    radius_pattern = r'(<cylinder[^>]*\bradius=")([^"]+)(")'
+    def _scale_radius(match):
+        try:
+            r = float(match.group(2))
+        except ValueError:
+            return match.group(0)
+        return f'{match.group(1)}{r * r_scale:.6g}{match.group(3)}'
+    
+    content = re.sub(radius_pattern, _scale_radius, content)
+    
+    length_pattern = r'(<cylinder[^>]*\blength=")([^"]+)(")'
+    def _scale_length(match):
+        try:
+            l = float(match.group(2))
+        except ValueError:
+            return match.group(0)
+        return f'{match.group(1)}{l * sz:.6g}{match.group(3)}'
+    
+    content = re.sub(length_pattern, _scale_length, content)
 
-    
-    
     with open(output_path, "w") as f:
         f.write(content)
 
@@ -680,7 +727,12 @@ def create_scaled_box_body_xml(
     new_scale: tuple,
     output_path: str | None = None,
 ):
-    """Scale geom positions in box_body.xml for climbing objects."""
+    """Scale geom positions and sizes in box_body.xml for climbing objects.
+    
+    This function scales both 'pos' and 'size' attributes of all geom elements.
+    - pos: position is scaled by (sx, sy, sz)
+    - size: dimensions are scaled by (sx, sy, sz) for box, (sx, sz) for cylinder
+    """
     if output_path is None:
         sx, sy, sz = new_scale
         output_path = xml_path.replace(".xml", f"_scaled_{sx:.2f}_{sy:.2f}_{sz:.2f}.xml")
@@ -689,6 +741,8 @@ def create_scaled_box_body_xml(
         content = f.read()
 
     sx, sy, sz = new_scale
+    
+    # Scale pos attributes
     geom_pos_pattern = r'(<geom[^>]*\bpos=")([^"]+)(")'
 
     def _scale_geom_pos(match):
@@ -703,6 +757,35 @@ def create_scaled_box_body_xml(
         return f'{match.group(1)}{scaled_pos}{match.group(3)}'
 
     content = re.sub(geom_pos_pattern, _scale_geom_pos, content)
+    
+    # Scale size attributes
+    # For box: size="x y z" -> all three scaled
+    # For cylinder: size="radius half_height" -> radius scaled by avg(sx,sy), height by sz
+    geom_size_pattern = r'(<geom[^>]*\bsize=")([^"]+)(")'
+    
+    def _scale_geom_size(match):
+        raw_size = match.group(2).split()
+        if len(raw_size) == 3:
+            # box: size="x y z"
+            try:
+                x, y, z = (float(raw_size[0]), float(raw_size[1]), float(raw_size[2]))
+            except ValueError:
+                return match.group(0)
+            scaled_size = f"{x * sx:.6g} {y * sy:.6g} {z * sz:.6g}"
+        elif len(raw_size) == 2:
+            # cylinder: size="radius half_height"
+            try:
+                r, h = (float(raw_size[0]), float(raw_size[1]))
+            except ValueError:
+                return match.group(0)
+            # Scale radius by average of sx and sy, height by sz
+            r_scale = (sx + sy) / 2
+            scaled_size = f"{r * r_scale:.6g} {h * sz:.6g}"
+        else:
+            return match.group(0)
+        return f'{match.group(1)}{scaled_size}{match.group(3)}'
+
+    content = re.sub(geom_size_pattern, _scale_geom_size, content)
 
     with open(output_path, "w") as f:
         f.write(content)
