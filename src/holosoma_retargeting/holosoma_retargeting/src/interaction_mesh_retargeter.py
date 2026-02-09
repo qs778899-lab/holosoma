@@ -1420,13 +1420,16 @@ class InteractionMeshRetargeter:
             if self.has_dynamic_object:
                 object_quat = q[-4:]
                 object_pos = q[-7:-4]
+                # Update object base frame (only for dynamic objects)
+                self.object_base.position = object_pos
+                self.object_base.wxyz = object_quat  # Assuming quaternion is in wxyz order
             else:
+                # For static objects (climbing task):
+                # All links are directly connected to world with their world positions encoded in joint origins.
+                # Do NOT update object_base position - keep it at 0 0 0 as defined by the URDF structure.
                 object_quat = np.asarray([1, 0, 0, 0])
-                object_pos = np.zeros(3)
-
-            # Update object base frame
-            self.object_base.position = object_pos
-            self.object_base.wxyz = object_quat  # Assuming quaternion is in wxyz order
+                self.object_base.position = np.zeros(3)
+                self.object_base.wxyz = object_quat
 
     def draw_keypoints(self, p, name="keypoint", rgba=(0, 0, 1, 1)):
         """Draw keypoints in visualization."""
