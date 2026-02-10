@@ -120,11 +120,13 @@ demo_data/snooker/snooker_table/
 │   └── <material name="snooker_table_material" .../>
 │   └── <material name="snooker_leg_material" .../>
 │
-├── box_body.xml                   # MuJoCo 几何体定义（使用 box + cylinder primitives）
+├── box_body.xml                   # MuJoCo 几何体定义（使用 box + cylinder primitives），参与碰撞检测
 │   └── <geom type="box" .../>     # 桌面
 │   └── <geom type="cylinder" .../> # 4条桌腿
 │    
-├── snooker_table.obj              # 仅用于表面点采样（load_object_data），不参与 MuJoCo 几何
+├── snooker_table.obj              # 仅用于表面点采样（load_object_data）
+│
+│── snooker_table.urdf             # 带scaled后缀版本参与retarget过程中的可视化
 │   
 │
 │  ═══════════════ 工具和数据 ═══════════════
