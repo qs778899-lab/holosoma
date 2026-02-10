@@ -181,6 +181,14 @@ $$ \text{s.t. } A \Delta q \le b $$
             <origin xyz="0 0 0" rpy="0 0 0"/> 
          </joint>
 
+         (3) 疑问：snooker_table.urdf的link的origin不为零，但是multi_boxes.urdf的每一个link的origin都是零？
+
+            multi_boxes.urdf 的方式：位置在 Mesh 内部。link引用的如box1.obj文件中的坐标本身就是带有偏移。
+            snooker_table.urdf 的方式：没有使用.obj 作为渲染模型，改用了 URDF 的几何基元（其几何中心默认永远在局部坐标系的 (0,0,0)）。
+
+
+
+
 
 
 3. G1 link列表
