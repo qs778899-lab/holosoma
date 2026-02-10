@@ -156,6 +156,7 @@ demo_data/snooker/snooker_table/
 ```bash
 cd holosoma/src/holosoma_retargeting/holosoma_retargeting
 
+conda activate hsretargeting
 python examples/robot_retarget.py \
   --data-path snooker_npy \
   --task-name snooker3 \

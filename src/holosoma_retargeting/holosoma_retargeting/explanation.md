@@ -136,6 +136,51 @@ $$ \text{s.t. } A \Delta q \le b $$
 
     * geom: 通过mesh="..."把上面的mesh等资产实例化到世界中, 具有 pos/quat、碰撞开关、材质等。
 
+    
+    2.1 urdf文件结构(以multi_boxes.urdf为例)：
+        （1）根节点和Link定义:
+
+         <robot name="multi_boxes">
+            <link name="world"/> <!-- world节点默认为世界坐标系原点(0,0,0) -->
+
+            <link name="multi_boxes_link">
+                <!-- Visual: 定义“看起来长什么样” -->
+                <visual>
+                <origin xyz="0 0 0" rpy="0 0 0"/> <!-- 几何体相对于这个 Link 坐标系的偏移 -->
+                <geometry>
+                    <!-- 引用外部 mesh 文件 -->
+                    <mesh filename="box_models/box1.obj" scale="0.74 0.74 0.74"/>
+                </geometry>
+                <material name="box1_material">
+                    <color rgba="0.3 0.7 0.9 0.5"/>
+                </material>
+                </visual>
+
+                <!-- Collision: 定义“物理碰撞体长什么样” -->
+                <collision name="multi_boxes">
+                <origin xyz="0 0 0" rpy="0 0 0"/>
+                <geometry>
+                    <mesh filename="box_models/box1.obj" scale="0.74 0.74 0.74"/>
+                </geometry>
+                </collision>
+
+                <!-- Inertial: 定义物理属性（质量、惯性张量） -->
+                <inertial>
+                <origin xyz="0 0 0" rpy="0 0 0"/>
+                <mass value="33.33"/>
+                <inertia ixx="33.33" ixy="0.0" ixz="0.0" iyy="33.33" iyz="0.0" izz="33.33"/>
+                </inertial>
+            </link>
+        
+        （2）Joint定义两个link的相对位置关系：
+
+          <joint name="world_to_multi_boxes" type="fixed">
+            <parent link="world"/>
+            <child link="multi_boxes_link"/>
+            <!-- Origin: 定义 Child Link 相对于 Parent Link 的位置 -->
+            <origin xyz="0 0 0" rpy="0 0 0"/> 
+         </joint>
+
 
 
 3. G1 link列表
@@ -217,9 +262,11 @@ $$ \text{s.t. } A \Delta q \le b $$
 
     改进：[x, y, z] -> [x, -z, y]，等价于绕 X 轴旋转 +90°（右手系）。
 
-6. holosoma进行retarget的task type是climbing时,球桌的位置不合理，表现为球桌桌面在地面整个陷入地面里：
+6. holosoma进行retarget的task type是climbing时,球桌的位置不合理，表现为球桌桌面和四个桌腿的中心都在世界坐标系的原点：
 
     
+7. 之前那个data.type改之后导致机器人蜷缩扭曲的bug
+
 
 
 
@@ -230,3 +277,11 @@ $$ \text{s.t. } A \Delta q \le b $$
     2. 注意坐标系定义，左手系还是右手系，y轴向上还是z轴向上，x轴向前还是y轴向前。
 
     3. 注意变量命名，有的项目命名混乱，local命名的变量不一定是机器人本体系，也可能是和机器人系共原点但和世界系共方向的坐标系.
+
+## 8. 工程提效关键：
+
+    1. 可视化有助于直观快速发现问题
+
+    2. 整体框架和思路逻辑要清晰完整，不能被AI牵着思路走
+
+    3. 功能的增加或者改进，原码有example的话，一定严格参照原有逻辑和流程

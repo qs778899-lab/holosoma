@@ -416,13 +416,13 @@ class InteractionMeshRetargeter:
 
     def _setup_visualization(self):
         """Setup Viser visualization components."""
-        self.server = viser.ViserServer()
+        self.server = viser.ViserServer(port=8081)
 
         # 1) Ensure a world frame exists (absolute path!)
         try:
             self.server.scene.add_frame("/world", show_axes=False)
         except Exception:
-            print("Starting viser")
+            print("Starting viser on port 8081")
 
         # Create parent frames for robot and object
         self.robot_base = self.server.scene.add_frame("/world/robot", show_axes=False)
