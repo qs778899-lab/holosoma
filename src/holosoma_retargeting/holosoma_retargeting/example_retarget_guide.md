@@ -166,8 +166,8 @@ python examples/robot_retarget.py \
   --task-config.object-name snooker_table \
   --task-config.object-dir demo_data/snooker/snooker_table \
   --task-config.ground-range -10 10 \
-  --task-config.surface-weight-threshold 0.0 \
-  --task-config.surface-weight-high 20 \
+  --task-config.surface-weight-threshold 0.02 \
+  --task-config.surface-weight-high 40 \
   --task-config.surface-weight-low 1 \
   --retargeter.activate-snooker-tracking False \
   --retargeter.activate-snooker-laplacian True \
