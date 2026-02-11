@@ -57,6 +57,7 @@ class InteractionMeshRetargeter:
         activate_foot_sticking: bool = True,
         activate_obj_non_penetration: bool = True,
         activate_joint_limits: bool = True,
+        activate_palm_flat_constraint: bool = False,  # !新增：是否启用左手掌平贴约束（默认 False）
         step_size: float = 0.2,
         collision_detection_threshold: float = 0.1,
         penetration_tolerance: float = 1e-3,
@@ -101,6 +102,7 @@ class InteractionMeshRetargeter:
         self.activate_foot_sticking = activate_foot_sticking
         self.activate_obj_non_penetration = activate_obj_non_penetration
         self.activate_joint_limits = activate_joint_limits
+        self.activate_palm_flat_constraint = activate_palm_flat_constraint  # !新增
         self.foot_links = dict(zip(task_constants.FOOT_STICKING_LINKS, task_constants.FOOT_STICKING_LINKS))
         self.penetration_tolerance = penetration_tolerance
         self.step_size = step_size
@@ -144,6 +146,11 @@ class InteractionMeshRetargeter:
         self.laplacian_frame_range = laplacian_frame_range if laplacian_frame_range is not None else snooker_frame_range
         self.wrist_tracking_frame_range = wrist_tracking_frame_range if wrist_tracking_frame_range is not None else snooker_frame_range
 
+        # 启动时确认帧范围，防止指令传错
+        print(f"\n[Constraint Range Check]")
+        print(f"  - Palm Flat Constraint Range: {self.wrist_tracking_frame_range}")
+        print(f"  - Laplacian Range: {self.laplacian_frame_range}")
+
         # --- 初始化日志功能 ---
         # 使用相对于脚本所在目录的路径，确保存入 holosoma_retargeting/logs
         log_dir = Path(__file__).parent.parent / "logs"
@@ -156,7 +163,8 @@ class InteractionMeshRetargeter:
             f.write(f"- activate_snooker_tracking: {self.activate_snooker_tracking}\n")
             f.write(f"- activate_snooker_laplacian: {self.activate_snooker_laplacian}\n")
             f.write(f"- activate_realtime_rotation_tracking: {self.activate_realtime_rotation_tracking}\n")
-            f.write(f"- activate_general_nominal_tracking: {self.activate_general_nominal_tracking}\n\n")
+            f.write(f"- activate_general_nominal_tracking: {self.activate_general_nominal_tracking}\n")
+            f.write(f"- activate_palm_flat_constraint: {self.activate_palm_flat_constraint}\n\n")
 
         self.smplh_mapped_joint_indices = [self.demo_joints.index(name) for name in self.base_link_keys]
         self.left_hand_idx = self.demo_joints.index("LeftHand") if "LeftHand" in self.demo_joints else None
@@ -1290,6 +1298,80 @@ class InteractionMeshRetargeter:
                     with open(self.log_path, "a") as f:
                         f.write(f"\n[WARNING Frame {frame_idx}] Right wrist global rotation tracking failed: {e}\n")
 
+        #! wrist: 新增 - 左手掌平贴约束（仅约束姿态 Roll/Pitch，不约束位置）
+        palm_flat_constraint_added = False
+        if self.activate_palm_flat_constraint and wrist_tracking_alpha > 0:
+            try:
+                # 硬编码校准偏移量：在此处直接修改数值，无需通过命令行传参
+                # 如果手掌侧着，尝试修改 roll_offset 为 np.pi/2 (1.5708) 或 -np.pi/2
+                palm_roll_offset = 1.5708   # <--- 在这里修改 Roll 偏移 (弧度)
+                palm_pitch_offset = 0.0  # <--- 在这里修改 Pitch 偏移 (弧度)
+
+                # 计算左手掌平贴约束的姿态误差和雅可比
+                J_ori, ori_error = self._calc_palm_flat_orientation_error(
+                    q, "left_wrist_yaw_link",
+                    roll_offset=palm_roll_offset,
+                    pitch_offset=palm_pitch_offset
+                )
+                
+                # 设置极高的权重，使其在优化中具有绝对主导权
+                # 这样可以实现"硬编码"式的约束效果
+                palm_flat_weight = 1e4 * wrist_tracking_alpha  # 非常大的权重
+                
+                # CVXPY: minimize || ori_error - J_ori @ dqa ||^2
+                # ori_error 是当前的 [roll, pitch] 误差，目标是让它们趋近于 0
+                palm_flat_cost = palm_flat_weight * cp.sum_squares(
+                    cp.Constant(ori_error) - cp.Constant(J_ori) @ dqa
+                )
+                obj_terms.append(palm_flat_cost)
+                obj_names.append("palm_flat_orientation")
+                palm_flat_constraint_added = True
+                
+                # 详细调试信息
+                if (frame_idx == 0) or (self.debug and frame_idx % 100 == 0):
+                    # 获取当前实际欧拉角用于校准
+                    self.robot_data.qpos[:] = q
+                    mujoco.mj_forward(self.robot_model, self.robot_data)
+                    body_id = mujoco.mj_name2id(self.robot_model, mujoco.mjtObj.mjOBJ_BODY, "left_wrist_yaw_link")
+                    curr_rot_mat = self.robot_data.xmat[body_id].reshape(3, 3)
+                    curr_euler_actual = Rotation.from_matrix(curr_rot_mat).as_euler('xyz', degrees=True)
+
+                    roll_deg = np.rad2deg(ori_error[0])
+                    pitch_deg = np.rad2deg(ori_error[1])
+                    debug_msg = (
+                        f"\n=== [Palm Flat Orientation Constraint - Frame {frame_idx}] ===\n"
+                        f"  activate_palm_flat_constraint: {self.activate_palm_flat_constraint}\n"
+                        f"  wrist_tracking_alpha: {wrist_tracking_alpha:.4f}\n"
+                        f"  palm_flat_weight: {palm_flat_weight:.2e}\n"
+                        f"  Current Actual Euler (deg): Roll={curr_euler_actual[0]:.2f}, Pitch={curr_euler_actual[1]:.2f}, Yaw={curr_euler_actual[2]:.2f}\n"
+                        f"  Hardcoded Offset (deg): Roll={np.rad2deg(palm_roll_offset):.2f}, Pitch={np.rad2deg(palm_pitch_offset):.2f}\n"
+                        f"  Current Error (deg): Roll={roll_deg:.2f}, Pitch={pitch_deg:.2f}\n"
+                        f"  J_ori shape: {J_ori.shape}\n"
+                        f"  expected palm flat cost: {palm_flat_weight * np.sum(ori_error**2):.6f}\n"
+                    )
+                    print(debug_msg)
+                    with open(self.log_path, "a") as f:
+                        f.write(debug_msg)
+                
+                # 强制在 debug 模式下打印每一帧的 loss 数值（如果大于 0）
+                if self.debug and palm_flat_weight > 0:
+                    # 注意：在 CVXPY 求解前，我们只能打印预期的 loss (基于当前 q)
+                    expected_cost = palm_flat_weight * np.sum(ori_error**2)
+                    if frame_idx % 10 == 0: # 每 10 帧打印一次，避免刷屏
+                        print(f"[Frame {frame_idx}] Expected Palm Flat Loss: {expected_cost:.6f}")
+                        
+            except Exception as e:
+                if frame_idx == 0 or self.debug:
+                    print(f"[WARNING] Left palm flat orientation constraint failed: {e}")
+                    with open(self.log_path, "a") as f:
+                        f.write(f"\n[WARNING Frame {frame_idx}] Left palm flat orientation constraint failed: {e}\n")
+        elif frame_idx == 0 or (self.debug and frame_idx % 100 == 0):
+            # 记录为什么没生效
+            reason = ""
+            if not self.activate_palm_flat_constraint: reason += "activate_palm_flat_constraint=False "
+            if not wrist_tracking_alpha > 0: reason += f"wrist_tracking_alpha={wrist_tracking_alpha:.4f} "
+            print(f"[Frame {frame_idx}] Palm Flat Constraint NOT active. Reason: {reason}")
+
         lap_term = cp.sum_squares(cp.multiply(sqrt_w3, lap_var - target_lap_vec))
         obj_terms.append(lap_term)
         obj_names.append("laplacian")
@@ -1844,6 +1926,62 @@ class InteractionMeshRetargeter:
         ])
         
         return J_rot, rot_error, current_quat_wxyz
+
+    #! wrist: 新增函数 - 计算手掌平贴约束的姿态误差
+    def _calc_palm_flat_orientation_error(
+        self,
+        q: np.ndarray,
+        link_name: str,
+        roll_offset: float = 0.0,   # !新增：Roll 方向的校准偏移
+        pitch_offset: float = 0.0,  # !新增：Pitch 方向的校准偏移
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """
+        计算左手掌平贴桌面的姿态约束误差。
+        
+        Args:
+            q: 当前机器人配置
+            link_name: 目标 link 名称
+            roll_offset: 目标 Roll 角度（弧度）。如果手掌侧着，尝试 np.pi/2 或 -np.pi/2
+            pitch_offset: 目标 Pitch 角度（弧度）
+        """
+        # 1. 更新正向运动学
+        self.robot_data.qpos[:] = q
+        mujoco.mj_forward(self.robot_model, self.robot_data)
+        
+        # 2. 获取 body id 和当前全局旋转
+        body_id = mujoco.mj_name2id(self.robot_model, mujoco.mjtObj.mjOBJ_BODY, link_name)
+        if body_id == -1:
+            raise ValueError(f"Body '{link_name}' not found in MuJoCo model")
+        
+        current_rot_mat = self.robot_data.xmat[body_id].reshape(3, 3)
+        pos = self.robot_data.xpos[body_id]
+        
+        # 3. 计算旋转雅可比
+        Jp = np.zeros((3, self.robot_model.nv), dtype=np.float64, order="C")
+        Jr = np.zeros((3, self.robot_model.nv), dtype=np.float64, order="C")
+        mujoco.mj_jac(self.robot_model, self.robot_data, Jp, Jr, pos.reshape(3, 1), body_id)
+        
+        # 4. 转换到 qpos 空间
+        T = self._build_transform_qdot_to_qvel_fast()
+        J_rot_full = Jr @ T
+        J_rot = J_rot_full[:, self.q_a_indices]
+        
+        # 5. 计算目标姿态
+        current_rot = Rotation.from_matrix(current_rot_mat)
+        curr_euler = current_rot.as_euler('xyz') # [roll, pitch, yaw]
+        
+        # 目标：保持当前 Yaw，但 Roll/Pitch 设为指定的偏移量
+        target_rot = Rotation.from_euler('xyz', [roll_offset, pitch_offset, curr_euler[2]])
+        
+        # 6. 计算旋转误差向量
+        error_rot_obj = target_rot * current_rot.inv()
+        error_vec = error_rot_obj.as_rotvec() 
+        
+        # 7. 提取误差分量
+        ori_error = error_vec[:2]
+        J_ori = J_rot[:2, :]
+        
+        return J_ori, ori_error
 
     
     def _calc_manipulator_jacobians(

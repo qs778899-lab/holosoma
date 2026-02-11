@@ -606,6 +606,7 @@ def build_retargeter_kwargs_from_config(
         "activate_snooker_laplacian": retargeter_config.activate_snooker_laplacian,
         "activate_realtime_rotation_tracking": retargeter_config.activate_realtime_rotation_tracking,
         "activate_general_nominal_tracking": retargeter_config.activate_general_nominal_tracking,
+        "activate_palm_flat_constraint": retargeter_config.activate_palm_flat_constraint,
         "visualization_fps": retargeter_config.visualization_fps,
         "visualization_interp_mult": retargeter_config.visualization_interp_mult,
         "smooth_weight": retargeter_config.smooth_weight,

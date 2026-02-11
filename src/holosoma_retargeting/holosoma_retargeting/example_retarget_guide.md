@@ -159,7 +159,7 @@ cd holosoma/src/holosoma_retargeting/holosoma_retargeting
 conda activate hsretargeting
 python examples/robot_retarget.py \
   --data-path snooker_npy \
-  --task-name snooker3 \
+  --task-name snooker2 \
   --task-type climbing \
   --data-format nokov \
   --save-dir snooker_results \
@@ -170,12 +170,13 @@ python examples/robot_retarget.py \
   --task-config.surface-weight-high 40 \
   --task-config.surface-weight-low 1 \
   --retargeter.activate-snooker-tracking False \
+  --retargeter.activate-palm-flat-constraint True \
   --retargeter.activate-snooker-laplacian True \
   --retargeter.activate-realtime-rotation-tracking False \
   --retargeter.activate-general-nominal-tracking False \
   --retargeter.activate-obj-non-penetration \
   --retargeter.laplacian-frame-range 580 1300 \
-  --retargeter.wrist-tracking-frame-range 0 1300 \
+  --retargeter.wrist-tracking-frame-range 580 1300 \
   --retargeter.snooker-frame-range 580 1300 \
   --retargeter.foot-sticking-tolerance 0.02 \
   --retargeter.visualize \
@@ -225,7 +226,7 @@ z=-0.84  ┴──────────────  桌腿底部
 
 python viser_player.py \
   --mjcf_path models/g1/scene_29dof_cue.xml \
-  --qpos_npz snooker_results/snooker3_original.npz
+  --qpos_npz snooker_results/snooker2_original.npz
 ```
 
 ### 5.6 自定义球桌参数

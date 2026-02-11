@@ -79,6 +79,9 @@ class RetargeterConfig:
     activate_general_nominal_tracking: BoolWithExplicitValue = False
     """Whether to enable full-body nominal tracking (requires reference sequence)."""
 
+    activate_palm_flat_constraint: BoolWithExplicitValue = False
+    """Whether to enable left palm flat orientation constraint."""
+
     visualization_fps: int = 30
     """Initial FPS for visualization playback. Lower values reduce blur but may appear less smooth."""
 
