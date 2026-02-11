@@ -48,7 +48,7 @@ python examples/parallel_robot_retarget.py \
 
 python examples/robot_retarget.py \
   --data-path snooker_npy \
-  --task-name snooker2 \
+  --task-name snooker3 \
   --task-type robot_only \
   --data-format nokov \
   --save-dir snooker_results \
@@ -175,7 +175,7 @@ python examples/robot_retarget.py \
   --retargeter.activate-general-nominal-tracking False \
   --retargeter.activate-obj-non-penetration \
   --retargeter.laplacian-frame-range 580 1300 \
-  --retargeter.wrist-tracking-frame-range 0 1704 \
+  --retargeter.wrist-tracking-frame-range 0 1300 \
   --retargeter.snooker-frame-range 580 1300 \
   --retargeter.foot-sticking-tolerance 0.02 \
   --retargeter.visualize \

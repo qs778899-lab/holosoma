@@ -328,7 +328,8 @@ def load_motion_data(
 
         npy_file = npy_files[0]
         # MOCAP-specific downsample factor (for climbing)
-        downsample = 4
+        
+        downsample = 1
         # nokov data might already be downsampled or high-freq, but we stick to the existing logic
         human_joints = np.load(str(npy_file))[::downsample]
 
