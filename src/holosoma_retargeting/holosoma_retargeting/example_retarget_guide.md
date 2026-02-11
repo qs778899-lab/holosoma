@@ -224,8 +224,8 @@ z=-0.84  ┴──────────────  桌腿底部
 ```bash
 
 python viser_player.py \
-  --mjcf_path demo_data/snooker/snooker_table/g1_29dof_w_snooker_table_scaled_0.74_0.74_0.74.xml \
-  --qpos_npz snooker_climbing_results/snooker_original.npz
+  --mjcf_path models/g1/scene_29dof_cue.xml \
+  --qpos_npz snooker_results/snooker3_original.npz
 ```
 
 ### 5.6 自定义球桌参数
