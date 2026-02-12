@@ -703,6 +703,10 @@ class InteractionMeshRetargeter:
 
                 # Create adjacency list and calculate target Laplacian coordinates
                 adj_list = get_adjacency_list(source_tetrahedra, len(source_vertices))
+                
+                #! cube: Ensure snooker edges are added BEFORE calculating target laplacian
+                self._add_snooker_edges(adj_list, active_link_keys)
+
                 target_laplacian = calculate_laplacian_coordinates(source_vertices, adj_list)
 
                 # Run optimization
@@ -936,25 +940,6 @@ class InteractionMeshRetargeter:
         robot_pts_local = np.array([p_OC_dict[k] for k in robot_link_keys])
         vertices = np.vstack([robot_pts_local, obj_pts_local])  # (V x 3)
 
-        #! cube: add manual edges and adjust weights
-        if self.activate_snooker_laplacian and laplacian_alpha > 0 and ("RightHandGrip" in robot_link_keys) and ("LeftHandBridge" in robot_link_keys) and ("CueTip" in robot_link_keys):
-            # 获取这三个关键点在网格顶点列表中的索引
-            rh_grip_idx = robot_link_keys.index("RightHandGrip")
-            lh_bridge_idx = robot_link_keys.index("LeftHandBridge")
-            cue_tip_idx = robot_link_keys.index("CueTip")
-            
-            # 在邻接表（adj_list）中增加边：右手握杆点 <-> 左手架杆点
-            if lh_bridge_idx not in adj_list[rh_grip_idx]:
-                adj_list[rh_grip_idx].append(lh_bridge_idx) #adj_list[i] 存储了所有与第 i 个点直接相连的点的索引。
-            if rh_grip_idx not in adj_list[lh_bridge_idx]:
-                adj_list[lh_bridge_idx].append(rh_grip_idx)
-                
-            # 在邻接表（adj_list）中增加边：左手架杆点 <-> 球杆尖端  
-            if cue_tip_idx not in adj_list[lh_bridge_idx]:
-                adj_list[lh_bridge_idx].append(cue_tip_idx)
-            if lh_bridge_idx not in adj_list[cue_tip_idx]:
-                adj_list[cue_tip_idx].append(lh_bridge_idx)
-
         # --- 增加严谨的调试逻辑：写入日志文件 ---
         if (frame_idx == 0) or (self.debug and frame_idx % 100 == 0):
             with open(self.log_path, "a") as f:
@@ -1051,7 +1036,12 @@ class InteractionMeshRetargeter:
         w_v = (self.laplacian_weights * np.ones(V)).astype(float)
         
         #! cube: Laplacian 虚拟点权重（使用 laplacian_alpha）
-        if self.activate_snooker_laplacian and laplacian_alpha > 0:
+        if self.activate_snooker_laplacian and laplacian_alpha > 0 and ("RightHandGrip" in robot_link_keys) and ("LeftHandBridge" in robot_link_keys) and ("CueTip" in robot_link_keys):
+            # 获取这三个关键点在网格顶点列表中的索引
+            rh_grip_idx = robot_link_keys.index("RightHandGrip")
+            lh_bridge_idx = robot_link_keys.index("LeftHandBridge")
+            cue_tip_idx = robot_link_keys.index("CueTip")
+            
             # 权重随 laplacian_alpha 平滑增强
             snooker_weight = 0 + (10 * laplacian_alpha) 
             w_v[rh_grip_idx] = snooker_weight
@@ -1342,6 +1332,30 @@ class InteractionMeshRetargeter:
         q_star[3:7] /= np.linalg.norm(q_star[3:7]) + 1e-12
 
         return q_star, cost
+
+    #! cube
+    def _add_snooker_edges(self, adj_list: list[list[int]], link_keys: list[str]):
+        """Add manual edges representing the snooker cue to the adjacency list."""
+        if not self.activate_snooker_laplacian:
+            return
+
+        if ("RightHandGrip" in link_keys) and ("LeftHandBridge" in link_keys) and ("CueTip" in link_keys):
+            rh_grip_idx = link_keys.index("RightHandGrip")
+            lh_bridge_idx = link_keys.index("LeftHandBridge")
+            cue_tip_idx = link_keys.index("CueTip")
+            
+            # Edge: RightHandGrip <-> LeftHandBridge
+            if lh_bridge_idx not in adj_list[rh_grip_idx]:
+                adj_list[rh_grip_idx].append(lh_bridge_idx)
+            if rh_grip_idx not in adj_list[lh_bridge_idx]:
+                adj_list[lh_bridge_idx].append(rh_grip_idx)
+                
+            # Edge: LeftHandBridge <-> CueTip
+            if cue_tip_idx not in adj_list[lh_bridge_idx]:
+                adj_list[lh_bridge_idx].append(cue_tip_idx)
+            if lh_bridge_idx not in adj_list[cue_tip_idx]:
+                adj_list[cue_tip_idx].append(lh_bridge_idx)
+
 
     def iterate(
         self,
