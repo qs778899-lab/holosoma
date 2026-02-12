@@ -166,7 +166,7 @@ python examples/robot_retarget.py \
   --task-config.object-name snooker_table \
   --task-config.object-dir demo_data/snooker/snooker_table \
   --task-config.ground-range -10 10 \
-  --task-config.surface-weight-threshold 0.02 \
+  --task-config.surface-weight-threshold 0.005 \
   --task-config.surface-weight-high 40 \
   --task-config.surface-weight-low 1 \
   --retargeter.activate-snooker-tracking False \
@@ -179,6 +179,7 @@ python examples/robot_retarget.py \
   --retargeter.wrist-tracking-frame-range 580 1300 \
   --retargeter.snooker-frame-range 580 1300 \
   --retargeter.foot-sticking-tolerance 0.02 \
+  --retargeter.penetration_tolerance 0.0005 \
   --retargeter.visualize \
   --retargeter.debug \
   --retargeter.visualization-interp-mult 1 \
@@ -197,6 +198,7 @@ python examples/robot_retarget.py \
 | `--task-config.surface-weight-high` | 见下方详解 |
 | `--task-config.surface-weight-low` | 见下方详解 |
 | `--retargeter.activate-obj-non-penetration` | 启用物体穿透检测（flag 格式，不需要 True/False） |
+| `--retargeter.penetration_tolerance` | 允许机器人的碰撞体进入地面或物体内部的“合法”穿透深度。
 
 #### 表面采样权重参数详解
 

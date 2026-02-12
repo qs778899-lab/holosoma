@@ -125,7 +125,7 @@ class InteractionMeshRetargeter:
             "CueTip": "right_wrist_yaw_link",
         }
         self.virtual_site_offsets = {
-            "LeftHandBridge": np.array([0.0415, 0.003, 0.035], dtype=float), #Z方向偏移量是正值，搭杆点在左手手腕上方
+            "LeftHandBridge": np.array([0.0415, 0.003, 0.05], dtype=float), #Z方向偏移量是正值，搭杆点在左手手腕上方
             "RightHandGrip": np.array([0.0415, -0.003, 0.0], dtype=float),
             "CueTip": np.array([0.1215, 0.017, 1.075], dtype=float),
         }
@@ -1043,7 +1043,7 @@ class InteractionMeshRetargeter:
             cue_tip_idx = robot_link_keys.index("CueTip")
             
             # 权重随 laplacian_alpha 平滑增强
-            snooker_weight = 0 + (10 * laplacian_alpha) 
+            snooker_weight = 0 + (60 * laplacian_alpha) 
             w_v[rh_grip_idx] = snooker_weight
             w_v[lh_bridge_idx] = snooker_weight
             w_v[cue_tip_idx] = snooker_weight
