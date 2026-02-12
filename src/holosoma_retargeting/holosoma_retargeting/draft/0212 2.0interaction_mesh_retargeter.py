@@ -364,9 +364,12 @@ class InteractionMeshRetargeter:
 
         active_links = dict(self.base_laplacian_match_links)
 
-        #! smooth: 优化：只要开启了功能，就始终包含虚拟点，确保拓扑结构连续
+        # 只有开启 snooker Laplacian 且具备左右手数据时，才追加虚拟点
         if self.activate_snooker_laplacian and self.has_snooker_hands:
-            active_links.update(self.snooker_virtual_links)
+            if self.laplacian_frame_range is None:
+                active_links.update(self.snooker_virtual_links)
+            elif laplacian_alpha > 0:
+                active_links.update(self.snooker_virtual_links)
 
         return active_links, laplacian_alpha, wrist_tracking_alpha
 
@@ -376,7 +379,6 @@ class InteractionMeshRetargeter:
         human_pos_full: np.ndarray,
         human_quat_full: np.ndarray | None,
         has_rot_data: bool,
-        alpha: float = 1.0,  #! smooth: 新增：缩放因子用于平滑生长
     ) -> dict[str, np.ndarray]:
         """Compute snooker virtual points in human space for the given frame."""
         if not self.has_snooker_hands:
@@ -384,12 +386,6 @@ class InteractionMeshRetargeter:
 
         lh_pos = human_pos_full[frame_idx, self.left_hand_idx]
         rh_pos = human_pos_full[frame_idx, self.right_hand_idx]
-
-        #! smooth ：偏移量随 alpha 平滑缩放
-        # 这确保了在 alpha=0 时虚拟点重合在手腕原点，消除对走路姿态的干扰
-        v_offsets = {k: v * alpha for k, v in self.virtual_site_offsets.items()}
-        cue_grip_offset = self.snooker_cue_grip_offset * alpha
-        cue_len = self.snooker_cue_length * alpha
 
         r_lh = None
         r_rh = None
@@ -400,15 +396,15 @@ class InteractionMeshRetargeter:
             r_rh = Rotation.from_quat([rh_quat_wxyz[1], rh_quat_wxyz[2], rh_quat_wxyz[3], rh_quat_wxyz[0]])
 
         if r_lh is not None and r_rh is not None:
-            left_bridge = lh_pos + r_lh.apply(v_offsets["LeftHandBridge"])
-            right_grip = rh_pos + r_rh.apply(v_offsets["RightHandGrip"])
-            cue_grip_on_stick = rh_pos + r_rh.apply(cue_grip_offset)
-            bridge_pos = lh_pos + r_lh.apply(v_offsets["LeftHandBridge"])
+            left_bridge = lh_pos + r_lh.apply(self.virtual_site_offsets["LeftHandBridge"])
+            right_grip = rh_pos + r_rh.apply(self.virtual_site_offsets["RightHandGrip"])
+            cue_grip_on_stick = rh_pos + r_rh.apply(self.snooker_cue_grip_offset)
+            bridge_pos = lh_pos + r_lh.apply(self.virtual_site_offsets["LeftHandBridge"])
         else:
-            left_bridge = lh_pos + v_offsets["LeftHandBridge"]
-            right_grip = rh_pos + v_offsets["RightHandGrip"]
-            cue_grip_on_stick = rh_pos + cue_grip_offset
-            bridge_pos = lh_pos + v_offsets["LeftHandBridge"]
+            left_bridge = lh_pos + self.virtual_site_offsets["LeftHandBridge"]
+            right_grip = rh_pos + self.virtual_site_offsets["RightHandGrip"]
+            cue_grip_on_stick = rh_pos + self.snooker_cue_grip_offset
+            bridge_pos = lh_pos + self.virtual_site_offsets["LeftHandBridge"]
 
         direction = bridge_pos - cue_grip_on_stick
         norm = float(np.linalg.norm(direction))
@@ -420,7 +416,7 @@ class InteractionMeshRetargeter:
         else:
             direction_norm = direction / norm
 
-        cue_tip = cue_grip_on_stick + direction_norm * cue_len
+        cue_tip = cue_grip_on_stick + direction_norm * self.snooker_cue_length
 
         return {
             "LeftHandBridge": left_bridge,
@@ -642,8 +638,7 @@ class InteractionMeshRetargeter:
                 snooker_virtual_positions = {}
                 if self.activate_snooker_laplacian and self.has_snooker_hands:
                     snooker_virtual_positions = self._compute_snooker_virtual_positions(
-                        i, human_pos_full, human_quat_full, has_rot_data,
-                        alpha=laplacian_alpha  #! smooth: 传递 alpha 实现偏移量平滑
+                        i, human_pos_full, human_quat_full, has_rot_data
                     )
                     
                     #! cube: 记录人类侧虚拟点位置到日志
@@ -808,8 +803,7 @@ class InteractionMeshRetargeter:
                     # )  
                     # 重新计算当前 q 下带偏移的所有点位置（包括虚拟点）用于可视化
                     _, p_robot_dict, _ = self._calc_manipulator_jacobians(
-                        q, links=active_links, obj_frame=False,
-                        alpha=laplacian_alpha  #! smooth: 传递 alpha 实现偏移量平滑可视化
+                        q, links=active_links, obj_frame=False
                     )
                     robot_link_positions = np.array([p_robot_dict[k] for k in active_link_keys])
                     
@@ -949,8 +943,7 @@ class InteractionMeshRetargeter:
         # Compute Laplacian pieces
         J_OC_dict, p_OC_dict, _ = self._calc_manipulator_jacobians(
             # q, links=self.laplacian_match_links, obj_frame=(self.object_name != "ground")  #! cube
-            q, links=active_links, obj_frame=(self.object_name != "ground"),
-            alpha=laplacian_alpha  #! smooth: 传递 alpha 实现偏移量平滑
+            q, links=active_links, obj_frame=(self.object_name != "ground") #! cube
         )
         # robot_link_keys = list(self.laplacian_match_links.keys()) #! cube
         robot_link_keys = list(active_links.keys()) #! cube
@@ -1058,8 +1051,8 @@ class InteractionMeshRetargeter:
         lap0_vec = lap0.reshape(-1)  # (3V,)
         target_lap_vec = target_laplacian.reshape(-1)  # (3V,)
 
-        #! smooth: 方案优化：针对 Snooker 虚拟点实施参考量平滑 (Reference Smoothing)
-        if self.activate_snooker_laplacian and ("RightHandGrip" in robot_link_keys) and ("LeftHandBridge" in robot_link_keys) and ("CueTip" in robot_link_keys):
+        # 方案优化：针对 Snooker 虚拟点实施参考量平滑 (Reference Smoothing)
+        if self.activate_snooker_laplacian and laplacian_alpha > 0 and ("RightHandGrip" in robot_link_keys) and ("LeftHandBridge" in robot_link_keys) and ("CueTip" in robot_link_keys):
             # 获取虚拟点的索引
             rh_idx = robot_link_keys.index("RightHandGrip")
             lh_idx = robot_link_keys.index("LeftHandBridge")
@@ -1067,29 +1060,27 @@ class InteractionMeshRetargeter:
             
             # 构造平滑目标：只有这三个点在 alpha 作用下缓慢向目标靠拢
             # 其他基础关节点保持 100% 追踪 (alpha=1)
-            if laplacian_alpha > 0:
-                for idx in [rh_idx, lh_idx, ct_idx]:
-                    start_slice = 3 * idx
-                    end_slice = 3 * (idx + 1)
-                    # target = current + alpha * (human_target - current)
-                    target_lap_vec[start_slice:end_slice] = (
-                        lap0_vec[start_slice:end_slice] + 
-                        laplacian_alpha * (target_lap_vec[start_slice:end_slice] - lap0_vec[start_slice:end_slice])
-                    )
+            for idx in [rh_idx, lh_idx, ct_idx]:
+                start_slice = 3 * idx
+                end_slice = 3 * (idx + 1)
+                # target = current + alpha * (human_target - current)
+                target_lap_vec[start_slice:end_slice] = (
+                    lap0_vec[start_slice:end_slice] + 
+                    laplacian_alpha * (target_lap_vec[start_slice:end_slice] - lap0_vec[start_slice:end_slice])
+                )
 
         # 计算 Laplacian 权重
         w_v = (self.laplacian_weights * np.ones(V)).astype(float)
         
         #! cube: Laplacian 虚拟点权重（使用 laplacian_alpha）
-        # 优化：取消 laplacian_alpha > 0 的判断，确保在 alpha=0 时权重被显式设为 0 而非默认值 10
-        if self.activate_snooker_laplacian and ("RightHandGrip" in robot_link_keys) and ("LeftHandBridge" in robot_link_keys) and ("CueTip" in robot_link_keys):
+        if self.activate_snooker_laplacian and laplacian_alpha > 0 and ("RightHandGrip" in robot_link_keys) and ("LeftHandBridge" in robot_link_keys) and ("CueTip" in robot_link_keys):
             # 获取这三个关键点在网格顶点列表中的索引
             rh_grip_idx = robot_link_keys.index("RightHandGrip")
             lh_bridge_idx = robot_link_keys.index("LeftHandBridge")
             cue_tip_idx = robot_link_keys.index("CueTip")
             
             # 权重随 laplacian_alpha 平滑增强
-            snooker_weight = 90 * laplacian_alpha
+            snooker_weight = 0 + (90 * laplacian_alpha) 
             w_v[rh_grip_idx] = snooker_weight
             w_v[lh_bridge_idx] = snooker_weight
             w_v[cue_tip_idx] = snooker_weight
@@ -1972,7 +1963,6 @@ class InteractionMeshRetargeter:
         links: dict[str, str],
         obj_frame: bool = False,
         point_offsets: np.ndarray | None = None,
-        alpha: float = 1.0,  #! smooth 新增：缩放因子用于平滑生长
     ):
         """Compute position-based Jacobians using MuJoCo."""
         J_XC_dict = {} #存储每个点的雅可比矩阵。
@@ -2005,11 +1995,7 @@ class InteractionMeshRetargeter:
                 virtual_offsets = {}
                 if hasattr(self.task_constants, "VIRTUAL_SITE_OFFSETS"): #无实际用处，因为self.task_constants中并没有定义VIRTUAL_SITE_OFFSETS内容
                     virtual_offsets.update(self.task_constants.VIRTUAL_SITE_OFFSETS)
-                
-                #! smooth：偏移量随 alpha 平滑缩放
-                v_offsets_scaled = {k: v * alpha for k, v in self.virtual_site_offsets.items()}
-                virtual_offsets.update(v_offsets_scaled) 
-                
+                virtual_offsets.update(self.virtual_site_offsets) #self.virtual_site_offsets有被定义！
                 pC_B = np.array(virtual_offsets.get(name, [0.0, 0.0, 0.0]))
 
             J = self._calc_contact_jacobian_from_point(body_id, pC_B)
