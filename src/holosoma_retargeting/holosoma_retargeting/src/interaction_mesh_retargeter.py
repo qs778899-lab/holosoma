@@ -124,8 +124,8 @@ class InteractionMeshRetargeter:
             "RightHandGrip": "right_wrist_yaw_link",
             "CueTip": "right_wrist_yaw_link",
         }
-        self.virtual_site_offsets = {
-            "LeftHandBridge": np.array([0.0815, 0.003, 0.03], dtype=float), #Z方向偏移量是正值，搭杆点在左手手腕上方
+        self.virtual_site_offsets = { 
+            "LeftHandBridge": np.array([0.05, 0.03, 0.017], dtype=float), #Z方向偏移量是正值，搭杆点在左手手腕上方
             "RightHandGrip": np.array([0.0415, -0.003, 0.0], dtype=float),
             "CueTip": np.array([0.1215, 0.017, 1.075], dtype=float),
         }
@@ -136,7 +136,7 @@ class InteractionMeshRetargeter:
         self.laplacian_match_links = self.base_laplacian_match_links
 
         self.snooker_frame_range = snooker_frame_range
-        self.snooker_ramp_frames = 45  # 过渡帧数增加到 45 帧（约 1.5 秒），使切换更缓慢平滑
+        self.snooker_ramp_frames = 60  # 过渡帧数增加，使切换更缓慢平滑
         self.activate_snooker_tracking = activate_snooker_tracking
         self.activate_snooker_laplacian = activate_snooker_laplacian
         self.activate_realtime_rotation_tracking = activate_realtime_rotation_tracking
@@ -452,6 +452,16 @@ class InteractionMeshRetargeter:
             urdf_or_path=self.robot_urdf,
             root_node_name="/world/robot",  # This links to the robot_base frame we created
         )
+
+        # 初始化手腕坐标轴帧（先放在原点，后面在 draw_q 中实时更新位置）
+        self.wrist_axes = {}
+        for link_name in ["left_wrist_yaw_link", "right_wrist_yaw_link"]:
+            self.wrist_axes[link_name] = self.server.scene.add_frame(
+                f"/world/robot_axes/{link_name}", 
+                show_axes=True, 
+                axes_length=0.2, 
+                axes_radius=0.007
+            )
 
         # Similarly for object
         if self.object_model_path:
@@ -784,10 +794,17 @@ class InteractionMeshRetargeter:
                     wrist_tracking_alpha=wrist_tracking_alpha,  #! wrist: 独立的手腕追踪激活因子
                 )
                 if self.debug:
-                    robot_link_positions = self._get_robot_link_positions(
-                        # q, self.laplacian_match_links.values() #! cube
-                        q, active_link_names #! cube
-                    )  # 15 X 3
+                    #原：可视化实际robot link点的位置计算
+                    # robot_link_positions = self._get_robot_link_positions(
+                    #     # q, self.laplacian_match_links.values() #! cube
+                    #     q, active_link_names #! cube
+                    # )  
+                    # 重新计算当前 q 下带偏移的所有点位置（包括虚拟点）用于可视化
+                    _, p_robot_dict, _ = self._calc_manipulator_jacobians(
+                        q, links=active_links, obj_frame=False
+                    )
+                    robot_link_positions = np.array([p_robot_dict[k] for k in active_link_keys])
+                    
                     robot_kpts_handle_list = self.draw_keypoints(
                         robot_link_positions, name="robot_kpts", rgba=(0, 1, 0, 1)
                     )
@@ -1043,7 +1060,7 @@ class InteractionMeshRetargeter:
             cue_tip_idx = robot_link_keys.index("CueTip")
             
             # 权重随 laplacian_alpha 平滑增强
-            snooker_weight = 0 + (60 * laplacian_alpha) 
+            snooker_weight = 0 + (90 * laplacian_alpha) 
             w_v[rh_grip_idx] = snooker_weight
             w_v[lh_bridge_idx] = snooker_weight
             w_v[cue_tip_idx] = snooker_weight
@@ -1415,6 +1432,17 @@ class InteractionMeshRetargeter:
         # Update robot base frame
         self.robot_base.position = robot_pos
         self.robot_base.wxyz = robot_quat  # Assuming quaternion is in wxyz order
+
+        # 新增：实时更新手腕坐标轴到正确的位置和朝向
+        if hasattr(self, "wrist_axes"):
+            for link_name, axis_frame in self.wrist_axes.items():
+                body_id = mujoco.mj_name2id(self.robot_model, mujoco.mjtObj.mjOBJ_BODY, link_name)
+                if body_id != -1:
+                    # 获取 MuJoCo 中该 Link 的实时世界位姿
+                    axis_frame.position = self.robot_data.xpos[body_id]
+                    # 将旋转矩阵转为四元数 (wxyz)
+                    mat = self.robot_data.xmat[body_id].reshape(3, 3)
+                    axis_frame.wxyz = Rotation.from_matrix(mat).as_quat()[[3, 0, 1, 2]]
 
         # Update object pose if it exists
         if hasattr(self, "viser_object") and self.viser_object is not None:

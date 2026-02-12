@@ -159,7 +159,7 @@ cd holosoma/src/holosoma_retargeting/holosoma_retargeting
 conda activate hsretargeting
 python examples/robot_retarget.py \
   --data-path snooker_npy \
-  --task-name snooker4 \
+  --task-name snooker8 \
   --task-type climbing \
   --data-format nokov \
   --save-dir snooker_results \
@@ -200,6 +200,8 @@ python examples/robot_retarget.py \
 | `--retargeter.activate-obj-non-penetration` | 启用物体穿透检测（flag 格式，不需要 True/False） |
 | `--retargeter.penetration_tolerance` | 允许机器人的碰撞体进入地面或物体内部的“合法”穿透深度。
 
+局部坐标系：红色 = X 轴，绿色 = Y 轴，蓝色 = Z 轴
+
 #### 表面采样权重参数详解
 
 这些参数控制从 OBJ 文件（`snooker_table.obj`）采样交互点时的权重分布：
@@ -228,7 +230,7 @@ z=-0.84  ┴──────────────  桌腿底部
 
 python viser_player.py \
   --mjcf_path models/g1/scene_29dof_cue.xml \
-  --qpos_npz snooker_results/snooker4_original.npz
+  --qpos_npz snooker_results/snooker8_original.npz
 ```
 
 ### 5.6 自定义球桌参数

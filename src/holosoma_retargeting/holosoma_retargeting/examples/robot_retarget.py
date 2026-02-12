@@ -429,7 +429,7 @@ def setup_object_data(
                 if p[2] > task_config.surface_weight_threshold
                 else task_config.surface_weight_low
             ),
-            sample_count=600, #! scene
+            sample_count=100, #! scene
         )
 
         if augmentation:
