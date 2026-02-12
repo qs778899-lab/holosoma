@@ -125,7 +125,7 @@ class InteractionMeshRetargeter:
             "CueTip": "right_wrist_yaw_link",
         }
         self.virtual_site_offsets = { 
-            "LeftHandBridge": np.array([0.05, 0.03, 0.017], dtype=float), #Z方向偏移量是正值，搭杆点在左手手腕上方
+            "LeftHandBridge": np.array([0.045, 0.043, 0.017], dtype=float), 
             "RightHandGrip": np.array([0.0415, -0.003, 0.0], dtype=float),
             "CueTip": np.array([0.1215, 0.017, 1.075], dtype=float),
         }
@@ -459,8 +459,8 @@ class InteractionMeshRetargeter:
             self.wrist_axes[link_name] = self.server.scene.add_frame(
                 f"/world/robot_axes/{link_name}", 
                 show_axes=True, 
-                axes_length=0.2, 
-                axes_radius=0.007
+                axes_length=0.1, 
+                axes_radius=0.0035
             )
 
         # Similarly for object

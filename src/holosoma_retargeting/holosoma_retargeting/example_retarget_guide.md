@@ -178,7 +178,7 @@ python examples/robot_retarget.py \
   --retargeter.laplacian-frame-range 580 1300 \
   --retargeter.wrist-tracking-frame-range 580 1300 \
   --retargeter.snooker-frame-range 580 1300 \
-  --retargeter.foot-sticking-tolerance 0.02 \
+  --retargeter.foot-sticking-tolerance 0.008 \
   --retargeter.penetration_tolerance 0.0005 \
   --retargeter.visualize \
   --retargeter.debug \
@@ -199,6 +199,7 @@ python examples/robot_retarget.py \
 | `--task-config.surface-weight-low` | 见下方详解 |
 | `--retargeter.activate-obj-non-penetration` | 启用物体穿透检测（flag 格式，不需要 True/False） |
 | `--retargeter.penetration_tolerance` | 允许机器人的碰撞体进入地面或物体内部的“合法”穿透深度。
+| `--retargeter.foot-sticking-tolerance` | 脚部在支撑相时允许在水平方向（X, Y轴）上发生的最大位移偏差（单位：米）。减小此值（如 0.001）可使脚部更稳固地钉在地上。 |
 
 局部坐标系：红色 = X 轴，绿色 = Y 轴，蓝色 = Z 轴
 
