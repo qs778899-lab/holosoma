@@ -125,7 +125,7 @@ class InteractionMeshRetargeter:
             "CueTip": "right_wrist_yaw_link",
         }
         self.virtual_site_offsets = { 
-            "LeftHandBridge": np.array([0.045, 0.043, 0.017], dtype=float), 
+            "LeftHandBridge": np.array([0.045, 0.056, 0.017], dtype=float), 
             "RightHandGrip": np.array([0.0415, -0.003, 0.0], dtype=float),
             "CueTip": np.array([0.1215, 0.017, 1.075], dtype=float),
         }
@@ -136,7 +136,7 @@ class InteractionMeshRetargeter:
         self.laplacian_match_links = self.base_laplacian_match_links
 
         self.snooker_frame_range = snooker_frame_range
-        self.snooker_ramp_frames = 60  # 过渡帧数增加，使切换更缓慢平滑
+        self.snooker_ramp_frames = 90  # 过渡帧数，使切换缓慢平滑
         self.activate_snooker_tracking = activate_snooker_tracking
         self.activate_snooker_laplacian = activate_snooker_laplacian
         self.activate_realtime_rotation_tracking = activate_realtime_rotation_tracking
@@ -315,7 +315,7 @@ class InteractionMeshRetargeter:
         return 0.5 * (1.0 - np.cos(np.pi * t))
 
     def _calc_alpha_for_range(self, frame_idx: int, frame_range: list[int] | None) -> float:
-        """Generic alpha calculation for any frame range using cosine smoothing.
+        """Generic alpha calculation for any frame range using quintic smoothing.
         
         Args:
             frame_idx: Current frame index
@@ -336,7 +336,9 @@ class InteractionMeshRetargeter:
             t = (end_f - frame_idx) / ramp
         else:
             return 1.0
-        return 0.5 * (1.0 - np.cos(np.pi * t))
+        # 使用五次多项式平滑 (Quintic Smoothstep): 6t^5 - 15t^4 + 10t^3
+        # 这种曲线在 t=0 和 t=1 处的一阶和二阶导数均为 0，过渡极其丝滑。
+        return t * t * t * (t * (t * 6 - 15) + 10)
 
     def _calc_laplacian_alpha(self, frame_idx: int) -> float:
         """Compute Laplacian virtual points activation alpha for a given frame index.
@@ -1049,6 +1051,24 @@ class InteractionMeshRetargeter:
         lap0_vec = lap0.reshape(-1)  # (3V,)
         target_lap_vec = target_laplacian.reshape(-1)  # (3V,)
 
+        # 方案优化：针对 Snooker 虚拟点实施参考量平滑 (Reference Smoothing)
+        if self.activate_snooker_laplacian and laplacian_alpha > 0 and ("RightHandGrip" in robot_link_keys) and ("LeftHandBridge" in robot_link_keys) and ("CueTip" in robot_link_keys):
+            # 获取虚拟点的索引
+            rh_idx = robot_link_keys.index("RightHandGrip")
+            lh_idx = robot_link_keys.index("LeftHandBridge")
+            ct_idx = robot_link_keys.index("CueTip")
+            
+            # 构造平滑目标：只有这三个点在 alpha 作用下缓慢向目标靠拢
+            # 其他基础关节点保持 100% 追踪 (alpha=1)
+            for idx in [rh_idx, lh_idx, ct_idx]:
+                start_slice = 3 * idx
+                end_slice = 3 * (idx + 1)
+                # target = current + alpha * (human_target - current)
+                target_lap_vec[start_slice:end_slice] = (
+                    lap0_vec[start_slice:end_slice] + 
+                    laplacian_alpha * (target_lap_vec[start_slice:end_slice] - lap0_vec[start_slice:end_slice])
+                )
+
         # 计算 Laplacian 权重
         w_v = (self.laplacian_weights * np.ones(V)).astype(float)
         
@@ -1234,14 +1254,19 @@ class InteractionMeshRetargeter:
                     pitch_offset=palm_pitch_offset
                 )
                 
-                # 设置极高的权重，使其在优化中具有绝对主导权
-                # 这样可以实现"硬编码"式的约束效果
-                palm_flat_weight = 1e4 * wrist_tracking_alpha  # 非常大的权重
+                # 方案优化：双重平滑 (Weight + Reference Smoothing)
+                # 1. 权重随 alpha 增加，初始介入更轻柔
+                palm_flat_weight = 1e2 * wrist_tracking_alpha
                 
-                # CVXPY: minimize || ori_error - J_ori @ dqa ||^2
-                # ori_error 是当前的 [roll, pitch] 误差，目标是让它们趋近于 0
+                # 2. 目标随 alpha 增加，修正过程更平缓
+                # 随着 wrist_tracking_alpha 从 0 到 1，修正目标从 0 缓慢增加到 100%
+                # 这结合了权重平滑和目标平滑，使手掌贴合过程极其丝滑且最终能完全实现约束
+                smooth_correction = wrist_tracking_alpha * ori_error
+                
+                # CVXPY: minimize || smooth_correction - J_ori @ dqa ||^2
+                # ori_error 是当前的 [roll, pitch] 误差，目标是通过 dqa 消除它
                 palm_flat_cost = palm_flat_weight * cp.sum_squares(
-                    cp.Constant(ori_error) - cp.Constant(J_ori) @ dqa
+                    cp.Constant(smooth_correction) - cp.Constant(J_ori) @ dqa
                 )
                 obj_terms.append(palm_flat_cost)
                 obj_names.append("palm_flat_orientation")
@@ -1265,16 +1290,17 @@ class InteractionMeshRetargeter:
                         f"  Current Actual Euler (deg): Roll={curr_euler_actual[0]:.2f}, Pitch={curr_euler_actual[1]:.2f}, Yaw={curr_euler_actual[2]:.2f}\n"
                         f"  Hardcoded Offset (deg): Roll={np.rad2deg(palm_roll_offset):.2f}, Pitch={np.rad2deg(palm_pitch_offset):.2f}\n"
                         f"  Current Error (deg): Roll={roll_deg:.2f}, Pitch={pitch_deg:.2f}\n"
+                        f"  Smooth Correction (alpha*error): {np.rad2deg(smooth_correction)}\n"
                         f"  J_ori shape: {J_ori.shape}\n"
-                        f"  expected palm flat cost: {palm_flat_weight * np.sum(ori_error**2):.6f}\n"
+                        f"  expected palm flat cost (pressure): {palm_flat_weight * np.sum(smooth_correction**2):.6f}\n"
                     )
                     print(debug_msg)
                     with open(self.log_path, "a") as f:
                         f.write(debug_msg)
                 # 强制在 debug 模式下打印每一帧的 loss 数值（如果大于 0）
-                if self.debug and palm_flat_weight > 0:
+                if self.debug and wrist_tracking_alpha > 0:
                     # 注意：在 CVXPY 求解前，我们只能打印预期的 loss (基于当前 q)
-                    expected_cost = palm_flat_weight * np.sum(ori_error**2)
+                    expected_cost = palm_flat_weight * np.sum(smooth_correction**2)
                     if frame_idx % 10 == 0: # 每 10 帧打印一次，避免刷屏
                         print(f"[Frame {frame_idx}] Expected Palm Flat Loss: {expected_cost:.6f}")
             except Exception as e:
