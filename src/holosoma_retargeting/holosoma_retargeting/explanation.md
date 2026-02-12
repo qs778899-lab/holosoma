@@ -272,10 +272,11 @@ $$ \text{s.t. } A \Delta q \le b $$
 
 6. holosoma进行retarget的task type是climbing时,球桌的位置不合理，表现为球桌桌面和四个桌腿的中心都在世界坐标系的原点：
 
+
+
 7. 增加左手手腕硬编码关节角约束后，机器人动作异常抖动：
 
     原因： 使用了欧拉角（Euler Angles）来计算误差，欧拉角存在万向节死锁和数值突变的问题
-
 
     
 8. 之前那个data.type改之后导致机器人蜷缩扭曲的bug

@@ -125,7 +125,7 @@ class InteractionMeshRetargeter:
             "CueTip": "right_wrist_yaw_link",
         }
         self.virtual_site_offsets = {
-            "LeftHandBridge": np.array([0.0415, 0.003, 0.0], dtype=float),
+            "LeftHandBridge": np.array([0.0415, 0.003, 0.035], dtype=float), #Z方向偏移量是正值，搭杆点在左手手腕上方
             "RightHandGrip": np.array([0.0415, -0.003, 0.0], dtype=float),
             "CueTip": np.array([0.1215, 0.017, 1.075], dtype=float),
         }
@@ -717,45 +717,9 @@ class InteractionMeshRetargeter:
                 is_full_nominal = False # 标记是否是完整的参考序列
 
                 
-                
                 if q_nominal_list is not None: #q_nominal_list只会从*_original.npz文件中获取，并不会从输入的npy文件中获取； 而且q_nominal_list存储的是每个关节的旋转角度。
                     curr_q_a_nominal = q_nominal_list[i, self.q_a_indices]
                     is_full_nominal = True
-                #! wrist: [DEPRECATED] 原方案 - 构造局部关节角度目标（已被全局旋转 tracking 替代）
-                # elif has_rot_data and self.activate_snooker_tracking:
-                #     #! wrist: 从 7D 数据中实时提取人类左手旋转，映射到机器人左手腕
-                #     # 注意：这里只设置左手腕的目标值，其他关节保持 None（不会被追踪）
-                #     lw_yaw_idx_global = 28  # G1 左手腕 Yaw 关节的全局索引
-                #     if lw_yaw_idx_global in self.q_a_indices and "LeftHand" in self.demo_joints:
-                #         # 构造一个只包含左手腕目标的数组
-                #         curr_q_a_nominal = np.zeros(self.nq_a)
-                #         
-                #         # BUG FIX: 从 demo_joints 中找到 LeftHand 的索引（对应 human_quat_full 的第二维）
-                #         lh_idx_in_demo = self.demo_joints.index("LeftHand")
-                #         lh_quat_wxyz = human_quat_full[i, lh_idx_in_demo]  # (w, x, y, z)
-                #         
-                #         # 将四元数转为欧拉角（scipy 用 xyzw 顺序）
-                #         r_lh = Rotation.from_quat([lh_quat_wxyz[1], lh_quat_wxyz[2], lh_quat_wxyz[3], lh_quat_wxyz[0]])
-                #         lh_euler = r_lh.as_euler('xyz')  # [roll, pitch, yaw]
-                #         
-                #         # 将人类 LeftHand 的 yaw 分量映射到机器人左手腕 Yaw 关节
-                #         lw_local_idx = np.where(self.q_a_indices == lw_yaw_idx_global)[0][0]
-                #         curr_q_a_nominal[lw_local_idx] = lh_euler[2]  # yaw 角度
-                #         
-                #         if i == 0:
-                #             debug_msg = (
-                #                 f"\n=== [Snooker Tracking Data Extraction - Frame {i}] ===\n"
-                #                 f"  demo_joints: {self.demo_joints}\n"
-                #                 f"  LeftHand idx in demo_joints: {lh_idx_in_demo}\n"
-                #                 f"  human_quat_full shape: {human_quat_full.shape}\n"
-                #                 f"  LeftHand quat (wxyz): {lh_quat_wxyz}\n"
-                #                 f"  LeftHand euler (xyz, deg): roll={np.rad2deg(lh_euler[0]):.2f}, pitch={np.rad2deg(lh_euler[1]):.2f}, yaw={np.rad2deg(lh_euler[2]):.2f}\n"
-                #                 f"  lw_local_idx in q_a: {lw_local_idx}\n"
-                #                 f"  curr_q_a_nominal[lw_local_idx]: {curr_q_a_nominal[lw_local_idx]:.6f} rad = {np.rad2deg(curr_q_a_nominal[lw_local_idx]):.2f} deg\n"
-                #             )
-                #             print(debug_msg)
-                #             with open(self.log_path, "a") as f:
-                #                 f.write(debug_msg)
 
                 #安全检查 - 确保不会误用错误的 nominal tracking
                 # 当 q_nominal_list 为 None 时，curr_q_a_nominal 应该保持为 None
@@ -1155,57 +1119,6 @@ class InteractionMeshRetargeter:
         obj_terms = []
         obj_names = [] # 新增：用于记录各分量名称
 
-        #! wrist: [DEPRECATED] 原方案 - 追踪局部关节角度（已被全局旋转 tracking 替代）
-        # 问题：直接把人类全局 yaw 赋给机器人局部 yaw 是错误的映射
-        # 现在由下方的 global_rotation_tracking 替代
-        # snooker_tracking_added = False
-        # if self.activate_snooker_tracking and snooker_alpha > 0 and q_a_nominal is not None:
-        #     lw_yaw_idx_global = 28  # G1 左手腕 Yaw 的全局关节索引
-        #     if lw_yaw_idx_global in self.q_a_indices:
-        #         # 将全局索引转换为优化变量数组中的局部索引
-        #         lw_local_idx = np.where(self.q_a_indices == lw_yaw_idx_global)[0][0]
-        #         lw_tracking_weight = 5.0 * snooker_alpha
-        #         
-        #         target_val = q_a_nominal[lw_local_idx]
-        #         curr_val = q_a_n_last[lw_local_idx]
-        #         delta = target_val - curr_val
-        #         
-        #         # 目标：让 dqa 驱动关节角逼近 q_a_nominal 中的目标值
-        #         error = dqa[lw_local_idx] - delta
-        #         term = lw_tracking_weight * cp.sum_squares(error)
-        #         obj_terms.append(term)
-        #         obj_names.append("snooker_tracking")
-        #         snooker_tracking_added = True
-        #         
-        #         # 详细调试信息写入日志
-        #         if (frame_idx == 0) or (self.debug and frame_idx % 100 == 0):
-        #             debug_msg = (
-        #                 f"\n=== [Snooker Tracking Debug - Frame {frame_idx}] ===\n"
-        #                 f"  snooker_alpha: {snooker_alpha:.4f}\n"
-        #                 f"  lw_local_idx: {lw_local_idx}\n"
-        #                 f"  lw_tracking_weight: {lw_tracking_weight:.4f}\n"
-        #                 f"  q_a_nominal[lw_local_idx] (target): {target_val:.6f} rad = {np.rad2deg(target_val):.2f} deg\n"
-        #                 f"  q_a_n_last[lw_local_idx] (current): {curr_val:.6f} rad = {np.rad2deg(curr_val):.2f} deg\n"
-        #                 f"  delta (target - current): {delta:.6f} rad = {np.rad2deg(delta):.2f} deg\n"
-        #                 f"  expected tracking cost: {lw_tracking_weight * delta**2:.6f}\n"
-        #             )
-        #             print(debug_msg)
-        #             with open(self.log_path, "a") as f:
-        #                 f.write(debug_msg)
-        # 
-        # # 如果 tracking 没有被添加，记录原因
-        # if (frame_idx == 0) and not snooker_tracking_added:
-        #     reason = []
-        #     if not self.activate_snooker_tracking:
-        #         reason.append("activate_snooker_tracking=False")
-        #     if snooker_alpha <= 0:
-        #         reason.append(f"snooker_alpha={snooker_alpha}<=0")
-        #     if q_a_nominal is None:
-        #         reason.append("q_a_nominal is None")
-        #     debug_msg = f"\n[Frame {frame_idx}] Snooker tracking NOT added. Reasons: {', '.join(reason)}\n"
-        #     print(debug_msg)
-        #     with open(self.log_path, "a") as f:
-        #         f.write(debug_msg)
 
         #! wrist:
         # 使用旋转雅可比匹配机器人 left_wrist_yaw_link 的全局旋转到人类 LeftHand 的全局旋转
@@ -1335,7 +1248,6 @@ class InteractionMeshRetargeter:
                     body_id = mujoco.mj_name2id(self.robot_model, mujoco.mjtObj.mjOBJ_BODY, "left_wrist_yaw_link")
                     curr_rot_mat = self.robot_data.xmat[body_id].reshape(3, 3)
                     curr_euler_actual = Rotation.from_matrix(curr_rot_mat).as_euler('xyz', degrees=True)
-
                     roll_deg = np.rad2deg(ori_error[0])
                     pitch_deg = np.rad2deg(ori_error[1])
                     debug_msg = (
@@ -1352,25 +1264,18 @@ class InteractionMeshRetargeter:
                     print(debug_msg)
                     with open(self.log_path, "a") as f:
                         f.write(debug_msg)
-                
                 # 强制在 debug 模式下打印每一帧的 loss 数值（如果大于 0）
                 if self.debug and palm_flat_weight > 0:
                     # 注意：在 CVXPY 求解前，我们只能打印预期的 loss (基于当前 q)
                     expected_cost = palm_flat_weight * np.sum(ori_error**2)
                     if frame_idx % 10 == 0: # 每 10 帧打印一次，避免刷屏
                         print(f"[Frame {frame_idx}] Expected Palm Flat Loss: {expected_cost:.6f}")
-                        
             except Exception as e:
                 if frame_idx == 0 or self.debug:
                     print(f"[WARNING] Left palm flat orientation constraint failed: {e}")
                     with open(self.log_path, "a") as f:
                         f.write(f"\n[WARNING Frame {frame_idx}] Left palm flat orientation constraint failed: {e}\n")
-        elif frame_idx == 0 or (self.debug and frame_idx % 100 == 0):
-            # 记录为什么没生效
-            reason = ""
-            if not self.activate_palm_flat_constraint: reason += "activate_palm_flat_constraint=False "
-            if not wrist_tracking_alpha > 0: reason += f"wrist_tracking_alpha={wrist_tracking_alpha:.4f} "
-            print(f"[Frame {frame_idx}] Palm Flat Constraint NOT active. Reason: {reason}")
+ 
 
         lap_term = cp.sum_squares(cp.multiply(sqrt_w3, lap_var - target_lap_vec))
         obj_terms.append(lap_term)
