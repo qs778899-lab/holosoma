@@ -90,7 +90,9 @@ python viser_player.py \
   --qpos_npz snooker_results/snooker2.npz
 
 ```
-
+可视化xml文件
+python -c "import mujoco.viewer; mujoco.viewer.launch()"
+将xml文件拖入mujoco viewer
 ---
 
 
@@ -127,6 +129,7 @@ demo_data/snooker/snooker_table/
 ├── snooker_table.obj              # 仅用于表面点采样（load_object_data）
 │
 │── snooker_table.urdf             # 带scaled后缀版本参与retarget过程中的可视化
+│── g1_29dof.urdf                  # 参与retarget过程中的可视化
 │   
 │
 │  ═══════════════ 工具和数据 ═══════════════
@@ -159,7 +162,7 @@ cd holosoma/src/holosoma_retargeting/holosoma_retargeting
 conda activate hsretargeting
 python examples/robot_retarget.py \
   --data-path snooker_npy \
-  --task-name snooker8 \
+  --task-name snooker9 \
   --task-type climbing \
   --data-format nokov \
   --save-dir snooker_results \
