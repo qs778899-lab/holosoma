@@ -887,11 +887,31 @@ class InteractionMeshRetargeter:
                 handle.remove()
             robot_kpts_handle_list.clear()
 
-        # Save results
+        #! save: --- 结果切片处理：剔除前 50 帧 ---
+        skip_frames = 50
+        # retargeted_motions[0] 是初始 q，[1:] 才是真正的序列
+        full_qpos = np.array(retargeted_motions)[1:]
+        
+        if full_qpos.shape[0] > skip_frames:
+            print(f"[Info] Slicing results: removing first {skip_frames} frames to avoid initialization artifacts.")
+            final_qpos = full_qpos[skip_frames:]
+            final_human_joints = human_joint_motions[skip_frames:]
+            # 如果有可视化列表，也进行同步切片
+            final_obj_pts_demo = obj_pts_demo_list[skip_frames:] if obj_pts_demo_list else []
+            final_obj_pts = obj_pts_list[skip_frames:] if obj_pts_list else []
+            final_tetrahedra = tetrahedra[skip_frames:] if tetrahedra else []
+        else:
+            final_qpos = full_qpos
+            final_human_joints = human_joint_motions
+            final_obj_pts_demo = obj_pts_demo_list
+            final_obj_pts = obj_pts_list
+            final_tetrahedra = tetrahedra
+
+        #! save: Save results
         np.savez(
             dest_res_path,
-            qpos=np.array(retargeted_motions)[1:],
-            human_joints=human_joint_motions,
+            qpos=final_qpos,
+            human_joints=final_human_joints,
             fps=30,
             cost=cost,
         )
@@ -904,7 +924,7 @@ class InteractionMeshRetargeter:
                 server=self.server,
                 viser_robot=self.viser_robot,
                 robot_base_frame=self.robot_base,
-                motion_sequence=np.asarray(retargeted_motions)[1:],
+                motion_sequence=final_qpos, #! save
                 robot_dof=robot_dof,
                 viser_object=self.viser_object,
                 object_base_frame=getattr(self, "object_base", None) if self.viser_object else None,
@@ -924,11 +944,12 @@ class InteractionMeshRetargeter:
                     if self.viser_object is not None:
                         self.viser_object.show_visual = show_meshes_cb.value
 
+        #! save:
         return (
-            np.array(retargeted_motions)[1:],
-            obj_pts_demo_list,
-            obj_pts_list,
-            tetrahedra,
+            final_qpos,
+            final_obj_pts_demo,
+            final_obj_pts,
+            final_tetrahedra,
         )
 
     def solve_single_iteration(

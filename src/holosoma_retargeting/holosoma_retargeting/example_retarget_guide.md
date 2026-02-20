@@ -158,7 +158,7 @@ cd holosoma/src/holosoma_retargeting/holosoma_retargeting
 conda activate hsretargeting
 python examples/robot_retarget.py \
   --data-path snooker_npy \
-  --task-name snooker12 \
+  --task-name snooker13 \
   --task-type climbing \
   --data-format nokov \
   --save-dir snooker_results \
@@ -230,7 +230,7 @@ z=-0.84  ┴──────────────  桌腿底部
 
 python viser_player.py \
   --mjcf_path models/g1/scene_29dof_cue.xml \
-  --qpos_npz snooker_results/snooker12_original.npz
+  --qpos_npz snooker_results/snooker13_original.npz
 ```
 
 ### 5.6 自定义球桌参数
