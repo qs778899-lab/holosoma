@@ -761,7 +761,7 @@ class InteractionMeshRetargeter:
                     target_lh_quat = human_quat_full[i, lh_idx_in_demo]  # (w, x, y, z) 全局四元数
 
                 #! cube: 提取人类 RightHand 的全局四元数用于全局旋转 tracking（权重较低）
-                #! MIRROR FIX: 机器人左右手是关于 XZ 平面（Y=0）镜像的，需要对右手四元数做镜像变换
+                # MIRROR FIX: 机器人左右手是关于 XZ 平面（Y=0）镜像的，需要对右手四元数做镜像变换
                 target_rh_quat = None
                 if has_rot_data and self.activate_snooker_tracking and "RightHand" in self.demo_joints:
                     rh_idx_in_demo = self.demo_joints.index("RightHand")
@@ -816,6 +816,51 @@ class InteractionMeshRetargeter:
                     robot_kpts_handle_list = self.draw_keypoints(
                         robot_link_positions, name="robot_kpts", rgba=(0, 1, 0, 1)
                     )
+
+                    #! collision: --- 修正：可视化球杆碰撞体（使用 Site 连线） ---
+                    # --- 增强调试：可视化球杆碰撞体（针对原因 B 和 C） ---
+                    try:
+                        tip_id = mujoco.mj_name2id(self.robot_model, mujoco.mjtObj.mjOBJ_SITE, "cue_tip_site")
+                        body_id = mujoco.mj_name2id(self.robot_model, mujoco.mjtObj.mjOBJ_BODY, "right_cue_stick_link")
+                        
+                        if i % 100 == 0:
+                            print(f"\n[Cue Debug Frame {i}]")
+                            print(f"  - IDs: tip_id={tip_id}, body_id={body_id}")
+                        
+                        if tip_id != -1 and body_id != -1:
+                            tip_pos = self.robot_data.site_xpos[tip_id].copy()
+                            body_pos = self.robot_data.xpos[body_id].copy()
+                            tail_pos = body_pos - (tip_pos - body_pos)
+                            
+                            if i % 100 == 0:
+                                print(f"  - Coordinates:")
+                                print(f"    Tip:  {tip_pos}")
+                                print(f"    Body: {body_pos}")
+                                print(f"    Tail: {tail_pos}")
+
+                            # 1. 绘制球杆线段（更换路径名以防冲突）
+                            self.server.scene.add_line_segments(
+                                "/debug/cue_stick_line",
+                                points=np.array([tail_pos, tip_pos]),
+                                colors=np.array([(255, 165, 0), (255, 165, 0)]),
+                                line_width=0.02
+                            )
+                            
+                            # 2. 在端点绘制明显的球体（防止线段太细看不见）
+                            self.server.scene.add_mesh_simple(
+                                "/debug/cue_tip_marker",
+                                vertices=trimesh.primitives.Sphere(radius=0.03).vertices,
+                                faces=trimesh.primitives.Sphere(radius=0.03).faces,
+                                position=tip_pos,
+                                color=(255, 0, 0) # 红色端点
+                            )
+                        elif i % 100 == 0:
+                            print(f"  [!] Warning: Cue stick components NOT found in MuJoCo model.")
+                            
+                    except Exception as e:
+                        if i % 100 == 0:
+                            print(f"  [!] Visualization Error: {e}")
+                    # --------------------------------------------------
 
                 retargeted_motions.append(q)
                 if self.visualize and self.debug:
@@ -1684,15 +1729,25 @@ class InteractionMeshRetargeter:
                 return False
             if contype[g2] == 0 and conaff[g2] == 0:
                 return False
-            if self.object_name in self._geom_names[g1] and "ground" in self._geom_names[g2]:
+            #! collision: 
+            name1 = self._geom_names[g1]
+            name2 = self._geom_names[g2]
+
+            # --- 新增：允许球杆(cue)与左手(left)的碰撞检测 ---
+            is_cue = "cue" in name1 or "cue" in name2
+            is_left_hand = "left" in name1 or "left" in name2
+            if is_cue and is_left_hand:
+                return True
+
+            if self.object_name in name1 and "ground" in name2:
                 return False
-            if "ground" in self._geom_names[g1] and self.object_name in self._geom_names[g2]:
+            if "ground" in name1 and self.object_name in name2:
                 return False
             return (
-                self.object_name in self._geom_names[g1]
-                or self.object_name in self._geom_names[g2]
-                or "ground" in self._geom_names[g1]
-                or "ground" in self._geom_names[g2]
+                self.object_name in name1
+                or self.object_name in name2
+                or "ground" in name1
+                or "ground" in name2
             )
 
         for g1, g2 in candidates:
