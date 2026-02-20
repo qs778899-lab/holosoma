@@ -124,8 +124,9 @@ class InteractionMeshRetargeter:
             "RightHandGrip": "right_wrist_yaw_link",
             "CueTip": "right_wrist_yaw_link",
         }
+        #! collision 
         self.virtual_site_offsets = { 
-            "LeftHandBridge": np.array([0.045, 0.06, 0.017], dtype=float), #y轴：改变不在手掌上方的高度
+            "LeftHandBridge": np.array([0.045, 0.055, 0.017], dtype=float), #y轴：改变杆在手掌上方的高度
             "RightHandGrip": np.array([0.0415, -0.003, 0.0], dtype=float),
             "CueTip": np.array([0.1215, 0.017, 1.075], dtype=float),
         }
@@ -818,7 +819,7 @@ class InteractionMeshRetargeter:
                     )
 
                     #! collision: --- 修正：可视化球杆碰撞体（使用 Site 连线） ---
-                    # --- 增强调试：可视化球杆碰撞体（针对原因 B 和 C） ---
+                    # --- 增强调试：可视化球杆碰撞体 ---
                     try:
                         tip_id = mujoco.mj_name2id(self.robot_model, mujoco.mjtObj.mjOBJ_SITE, "cue_tip_site")
                         body_id = mujoco.mj_name2id(self.robot_model, mujoco.mjtObj.mjOBJ_BODY, "right_cue_stick_link")
@@ -838,11 +839,11 @@ class InteractionMeshRetargeter:
                                 print(f"    Body: {body_pos}")
                                 print(f"    Tail: {tail_pos}")
 
-                            # 1. 绘制球杆线段（更换路径名以防冲突）
+                            # 1. 绘制球杆线段（修正形状为 (1, 2, 3)）
                             self.server.scene.add_line_segments(
                                 "/debug/cue_stick_line",
-                                points=np.array([tail_pos, tip_pos]),
-                                colors=np.array([(255, 165, 0), (255, 165, 0)]),
+                                points=np.array([[tail_pos, tip_pos]]), # 增加一个维度符合 (N, 2, 3)
+                                colors=np.array([[255, 165, 0], [255, 165, 0]]), # 颜色也要对应 (N, 2, 3) 或 (N, 3)
                                 line_width=0.02
                             )
                             
@@ -1733,11 +1734,26 @@ class InteractionMeshRetargeter:
             name1 = self._geom_names[g1]
             name2 = self._geom_names[g2]
 
-            # --- 新增：允许球杆(cue)与左手(left)的碰撞检测 ---
+            # --- 增强碰撞检测：允许球杆(cue)与身体特定部位的碰撞 ---
             is_cue = "cue" in name1 or "cue" in name2
-            is_left_hand = "left" in name1 or "left" in name2
-            if is_cue and is_left_hand:
-                return True
+            # 定义需要避障的身体部位关键词
+            # 1. 左手: left_rubber_hand (保留核心需求)
+            # 2. 左手腕: left_wrist (新增，G1 中包含 left_wrist_roll_link 等)
+            # 3. 左小臂: left_elbow (G1 中通常包含 left_elbow_link)
+            # 4. 左大臂: left_shoulder (G1 中左大臂通常在 left_shoulder_roll_link 或 left_shoulder_yaw_link)
+            # 5. 左肩: left_shoulder
+            # 6. 右大腿: right_hip
+            # 7. 胸部: torso
+            body_parts = ["left_rubber_hand", "left_wrist", "left_elbow", "left_shoulder", "right_hip", "torso"] 
+            
+            is_target_body_part = any(part in name1 for part in body_parts) or \
+                                  any(part in name2 for part in body_parts)
+            
+            if is_cue and is_target_body_part:
+                # 排除掉球杆与其直接挂载点（右手腕）的碰撞，防止自碰撞导致优化失败
+                is_right_wrist = "right_wrist" in name1 or "right_wrist" in name2
+                if not is_right_wrist:
+                    return True
 
             if self.object_name in name1 and "ground" in name2:
                 return False
