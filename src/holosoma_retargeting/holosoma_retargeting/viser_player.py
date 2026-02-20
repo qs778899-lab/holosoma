@@ -64,7 +64,7 @@ def make_player(
     qpos: np.ndarray,
     fps: int | None = None,
 ):
-    server = viser.ViserServer()
+    server = viser.ViserServer(port=8081)
     actual_fps = fps if fps is not None else config.fps
     n_frames = len(qpos)
 

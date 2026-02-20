@@ -125,7 +125,7 @@ class InteractionMeshRetargeter:
             "CueTip": "right_wrist_yaw_link",
         }
         self.virtual_site_offsets = { 
-            "LeftHandBridge": np.array([0.045, 0.056, 0.017], dtype=float), 
+            "LeftHandBridge": np.array([0.045, 0.06, 0.017], dtype=float), #y轴：改变不在手掌上方的高度
             "RightHandGrip": np.array([0.0415, -0.003, 0.0], dtype=float),
             "CueTip": np.array([0.1215, 0.017, 1.075], dtype=float),
         }
