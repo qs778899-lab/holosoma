@@ -158,7 +158,7 @@ cd holosoma/src/holosoma_retargeting/holosoma_retargeting
 conda activate hsretargeting
 python examples/robot_retarget.py \
   --data-path snooker_npy \
-  --task-name snooker13 \
+  --task-name snooker14 \
   --task-type climbing \
   --data-format nokov \
   --save-dir snooker_results \
@@ -175,7 +175,7 @@ python examples/robot_retarget.py \
   --retargeter.activate-general-nominal-tracking False \
   --retargeter.activate-obj-non-penetration \
   --retargeter.laplacian-frame-range 580 1300 \
-  --retargeter.wrist-tracking-frame-range 500 1300 \
+  --retargeter.wrist-tracking-frame-range 350 1300 \
   --retargeter.snooker-frame-range 580 1300 \
   --retargeter.foot-sticking-tolerance 0.008 \
   --retargeter.penetration_tolerance 0.0005 \
