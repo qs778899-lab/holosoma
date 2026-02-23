@@ -137,7 +137,8 @@ class InteractionMeshRetargeter:
         self.laplacian_match_links = self.base_laplacian_match_links
 
         self.snooker_frame_range = snooker_frame_range
-        self.snooker_ramp_frames = 90  # 过渡帧数，使切换缓慢平滑
+        self.snooker_ramp_frames = 90  # 通用过渡帧数
+        self.wrist_ramp_frames = 200   # 专门用于左手腕约束的过渡帧数（增加到 200 帧）
         self.activate_snooker_tracking = activate_snooker_tracking
         self.activate_snooker_laplacian = activate_snooker_laplacian
         self.activate_realtime_rotation_tracking = activate_realtime_rotation_tracking
@@ -315,12 +316,13 @@ class InteractionMeshRetargeter:
         # 这种曲线在起点和终点的导数为 0，能实现无感的力平滑过渡。
         return 0.5 * (1.0 - np.cos(np.pi * t))
 
-    def _calc_alpha_for_range(self, frame_idx: int, frame_range: list[int] | None) -> float:
+    def _calc_alpha_for_range(self, frame_idx: int, frame_range: list[int] | None, ramp_frames: int | None = None) -> float:
         """Generic alpha calculation for any frame range using quintic smoothing.
         
         Args:
             frame_idx: Current frame index
             frame_range: [start_frame, end_frame] or None
+            ramp_frames: Optional custom ramp frames. If None, uses self.snooker_ramp_frames.
             
         Returns:
             Alpha value in [0, 1] with smooth ramp-in/ramp-out
@@ -330,7 +332,10 @@ class InteractionMeshRetargeter:
         start_f, end_f = frame_range
         if (frame_idx < start_f) or (frame_idx > end_f):
             return 0.0
-        ramp = max(int(self.snooker_ramp_frames), 1)
+        
+        # 优先级：传入的 ramp_frames > 默认的 self.snooker_ramp_frames
+        current_ramp = ramp_frames if ramp_frames is not None else self.snooker_ramp_frames
+        ramp = max(int(current_ramp), 1)
         if frame_idx < start_f + ramp:
             t = (frame_idx - start_f) / ramp
         elif frame_idx > end_f - ramp:
@@ -349,9 +354,9 @@ class InteractionMeshRetargeter:
 
     def _calc_wrist_tracking_alpha(self, frame_idx: int) -> float:
         """Compute wrist rotation tracking activation alpha for a given frame index.
-        Uses wrist_tracking_frame_range (falls back to snooker_frame_range if not set).
+        Uses wrist_tracking_frame_range and custom wrist_ramp_frames.
         """
-        return self._calc_alpha_for_range(frame_idx, self.wrist_tracking_frame_range)
+        return self._calc_alpha_for_range(frame_idx, self.wrist_tracking_frame_range, ramp_frames=self.wrist_ramp_frames)
 
     #! cube：整个函数都是新增的。
     def _get_active_laplacian_links(self, frame_idx: int) -> tuple[dict[str, str], float, float]:

@@ -230,7 +230,7 @@ z=-0.84  ┴──────────────  桌腿底部
 
 python viser_player.py \
   --mjcf_path models/g1/scene_29dof_cue.xml \
-  --qpos_npz snooker_results/snooker13_original.npz
+  --qpos_npz snooker_results/snooker14_original.npz
 ```
 
 ### 5.6 自定义球桌参数
