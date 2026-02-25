@@ -223,6 +223,13 @@ $$ \text{s.t. } A \Delta q \le b $$
     软约束：通常体现为 Cost Function（代价函数）
 
 5. holosoma碰撞检测的原理：
+   - **核心机制**：基于 MuJoCo 物理引擎的**非穿透硬约束 (Non-penetration Hard Constraints)**。
+   - **检测流程**：
+     1. **广度相位 (Broad-phase)**：使用 `mj_collision` 快速筛选可能发生碰撞的几何体对 (Geom Pairs)。
+     2. **窄度相位 (Narrow-phase)**：通过 `mj_geomDistance` 精确计算候选对之间的最小距离 $\phi$。
+     3. **雅可比映射**：利用 MuJoCo 的 `mj_jac` 将笛卡尔空间的碰撞法线映射到关节空间的雅可比矩阵 $J$。
+   - **优化集成**：在 SQP（序列二次规划）迭代中，将碰撞转化为线性约束：$J \cdot \Delta q \ge -\phi - \text{tolerance}$。
+   - **过滤机制**：通过 `masks_ok` 自定义函数，选择性地开启特定部位（如球杆与左手、胸部）的碰撞检测，平衡计算效率与安全性。
 
 
 
