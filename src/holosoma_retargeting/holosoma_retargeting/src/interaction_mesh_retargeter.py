@@ -1763,14 +1763,14 @@ class InteractionMeshRetargeter:
             # --- 增强碰撞检测：允许球杆(cue)与身体特定部位的碰撞 ---
             is_cue = "cue" in name1 or "cue" in name2
             # 定义需要避障的身体部位关键词
-            # 1. 左手: left_rubber_hand (保留核心需求)
-            # 2. 左手腕: left_wrist (新增，G1 中包含 left_wrist_roll_link 等)
-            # 3. 左小臂: left_elbow (G1 中通常包含 left_elbow_link)
-            # 4. 左大臂: left_shoulder (G1 中左大臂通常在 left_shoulder_roll_link 或 left_shoulder_yaw_link)
-            # 5. 左肩: left_shoulder
-            # 6. 右大腿: right_hip
-            # 7. 胸部: torso
-            body_parts = ["left_rubber_hand", "left_wrist", "left_elbow", "left_shoulder", "right_hip", "torso"] 
+            # 1. 左手/手腕/小臂/大臂/肩: left_rubber_hand, left_wrist, left_elbow, left_shoulder
+            # 2. 躯干及以上 (胸/颈/头): torso, head (G1 中 torso 以上通常包含 head_link)
+            # 3. 右肩: right_shoulder
+            # 4. 右大腿: right_hip
+            body_parts = [
+                "left_rubber_hand", "left_wrist", "left_elbow", "left_shoulder", 
+                "torso", "head", "right_shoulder", "right_hip"
+            ] 
             
             is_target_body_part = any(part in name1 for part in body_parts) or \
                                   any(part in name2 for part in body_parts)
