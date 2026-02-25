@@ -318,7 +318,13 @@ $$ \text{s.t. } A \Delta q \le b $$
     $\mathbf{\delta}i$ 是目标拉普拉斯坐标（即我们想要保持的理想几何关系）。
     $w_{v,i}$ 就是代码中的 snooker_weight。
 
+11. 增加新的约束和相关参数未发挥作用：
 
+    原项目参数传递链长，不能遗漏环节：
+    命令行参数
+    → RetargeterConfig (retargeter.py)        ✅ 有新参数
+    → build_retargeter_kwargs_from_config()   ❌ 没有传递新参数  ← 断点在这里
+    → InteractionMeshRetargeter.__init__()    ✅ 有新参数接收
 
 
 ## 7. 工程细节和易错点:

@@ -72,10 +72,6 @@ class InteractionMeshRetargeter:
         visualization_fps: int = 100,
         visualization_interp_mult: int = 2,
         smooth_weight: float = 0.2,
-        activate_right_wrist_yaw_zero_constraint: bool = False,
-        right_wrist_yaw_zero_frame_range: list[int] | None = None,
-        right_wrist_yaw_zero_ramp_frames: int = 300,
-        right_wrist_yaw_zero_weight: float = 10.0,
     ):
         """This kinematic retargeter solves the diffIK problem with hard constraints in SQP style.
         During each SQP iteration, the problem is solved with the following constraints and costs:
@@ -107,10 +103,6 @@ class InteractionMeshRetargeter:
         self.activate_obj_non_penetration = activate_obj_non_penetration
         self.activate_joint_limits = activate_joint_limits
         self.activate_palm_flat_constraint = activate_palm_flat_constraint  # !新增
-        self.activate_right_wrist_yaw_zero_constraint = activate_right_wrist_yaw_zero_constraint
-        self.right_wrist_yaw_zero_frame_range = right_wrist_yaw_zero_frame_range if right_wrist_yaw_zero_frame_range is not None else [580, 1300]
-        self.right_wrist_yaw_zero_ramp_frames = right_wrist_yaw_zero_ramp_frames
-        self.right_wrist_yaw_zero_weight = right_wrist_yaw_zero_weight
         self.foot_links = dict(zip(task_constants.FOOT_STICKING_LINKS, task_constants.FOOT_STICKING_LINKS))
         self.penetration_tolerance = penetration_tolerance
         self.step_size = step_size
@@ -160,7 +152,6 @@ class InteractionMeshRetargeter:
         print(f"\n[Constraint Range Check]")
         print(f"  - Palm Flat Constraint Range: {self.wrist_tracking_frame_range}")
         print(f"  - Laplacian Range: {self.laplacian_frame_range}")
-        print(f"  - Right Wrist Yaw Zeroing Range: {self.right_wrist_yaw_zero_frame_range}")
 
         # --- 初始化日志功能 ---
         # 使用相对于脚本所在目录的路径，确保存入 holosoma_retargeting/logs
@@ -175,8 +166,7 @@ class InteractionMeshRetargeter:
             f.write(f"- activate_snooker_laplacian: {self.activate_snooker_laplacian}\n")
             f.write(f"- activate_realtime_rotation_tracking: {self.activate_realtime_rotation_tracking}\n")
             f.write(f"- activate_general_nominal_tracking: {self.activate_general_nominal_tracking}\n")
-            f.write(f"- activate_palm_flat_constraint: {self.activate_palm_flat_constraint}\n")
-            f.write(f"- activate_right_wrist_yaw_zero_constraint: {self.activate_right_wrist_yaw_zero_constraint}\n\n")
+            f.write(f"- activate_palm_flat_constraint: {self.activate_palm_flat_constraint}\n\n")
 
         self.smplh_mapped_joint_indices = [self.demo_joints.index(name) for name in self.base_link_keys]
         self.left_hand_idx = self.demo_joints.index("LeftHand") if "LeftHand" in self.demo_joints else None
@@ -303,28 +293,6 @@ class InteractionMeshRetargeter:
         self.nominal_tracking_tau = nominal_tracking_tau
         self.track_nominal_indices = task_constants.NOMINAL_TRACKING_INDICES
 
-        #! wrist: 初始化右手腕 Yaw 关节索引
-        # 必须在 robot_model 加载完成、q_a_indices 确定之后执行
-        self.rw_yaw_joint_id = mujoco.mj_name2id(
-            self.robot_model, mujoco.mjtObj.mjOBJ_JOINT, "right_wrist_yaw_joint"
-        )
-        if self.rw_yaw_joint_id == -1:
-            print("[WARNING] 'right_wrist_yaw_joint' not found in MuJoCo model. Right wrist yaw zeroing disabled.")
-            self.activate_right_wrist_yaw_zero_constraint = False
-            self.rw_yaw_dqa_idx = None
-        else:
-            # jnt_qposadr 给出该关节在 qpos 中的起始位置
-            qpos_idx = int(self.robot_model.jnt_qposadr[self.rw_yaw_joint_id])
-            # q_a_indices 是优化变量在 qpos 中的索引数组，找到 qpos_idx 在其中的位置
-            dqa_idx_arr = np.where(self.q_a_indices == qpos_idx)[0]
-            if len(dqa_idx_arr) == 0:
-                print(f"[WARNING] 'right_wrist_yaw_joint' qpos_idx={qpos_idx} not in q_a_indices. Right wrist yaw zeroing disabled.")
-                self.activate_right_wrist_yaw_zero_constraint = False
-                self.rw_yaw_dqa_idx = None
-            else:
-                self.rw_yaw_dqa_idx = int(dqa_idx_arr[0])
-                print(f"[Init] right_wrist_yaw_joint: joint_id={self.rw_yaw_joint_id}, qpos_idx={qpos_idx}, dqa_idx={self.rw_yaw_dqa_idx}")
-
     #! cube
     def _calc_snooker_alpha(self, frame_idx: int) -> float:
         """Compute snooker activation alpha for a given frame index using cosine smoothing.
@@ -389,16 +357,6 @@ class InteractionMeshRetargeter:
         Uses wrist_tracking_frame_range and custom wrist_ramp_frames.
         """
         return self._calc_alpha_for_range(frame_idx, self.wrist_tracking_frame_range, ramp_frames=self.wrist_ramp_frames)
-
-    def _calc_right_wrist_yaw_zero_alpha(self, frame_idx: int) -> float:
-        """Compute right wrist yaw zeroing activation alpha for a given frame index.
-        Uses right_wrist_yaw_zero_frame_range and right_wrist_yaw_zero_ramp_frames.
-        """
-        return self._calc_alpha_for_range(
-            frame_idx, 
-            self.right_wrist_yaw_zero_frame_range, 
-            ramp_frames=self.right_wrist_yaw_zero_ramp_frames
-        )
 
     #! cube：整个函数都是新增的。
     def _get_active_laplacian_links(self, frame_idx: int) -> tuple[dict[str, str], float, float]:
@@ -1432,49 +1390,6 @@ class InteractionMeshRetargeter:
                     with open(self.log_path, "a") as f:
                         f.write(f"\n[WARNING Frame {frame_idx}] Left palm flat orientation constraint failed: {e}\n")
  
-
-        #! rw_yaw: 新增 - 右手腕 Yaw 轴归零软约束
-        rw_yaw_alpha = self._calc_right_wrist_yaw_zero_alpha(frame_idx)
-        if self.activate_right_wrist_yaw_zero_constraint and rw_yaw_alpha > 0:
-            try:
-                # 1. 获取当前关节角度 (q 包含 root 7维)
-                current_yaw_val = q[self.robot_model.jnt_qposadr[self.rw_yaw_joint_id]]
-                
-                # 2. 计算归零误差 (目标是 0)
-                zeroing_error = -current_yaw_val
-                
-                # 3. 双重平滑处理 (Weight + Target Smoothing)
-                # 权重随 alpha 增加
-                rw_yaw_weight = self.right_wrist_yaw_zero_weight * rw_yaw_alpha
-                # 修正目标随 alpha 增加，使归零过程平滑
-                smooth_rw_correction = rw_yaw_alpha * zeroing_error
-                
-                # 4. 构建 CVXPY 代价项: minimize || smooth_rw_correction - dqa[idx] ||^2
-                rw_yaw_cost = rw_yaw_weight * cp.sum_squares(
-                    cp.Constant(smooth_rw_correction) - dqa[self.rw_yaw_dqa_idx]
-                )
-                
-                obj_terms.append(rw_yaw_cost)
-                obj_names.append("right_wrist_yaw_zeroing")
-                
-                # 详细调试信息
-                if (frame_idx == 0) or (self.debug and frame_idx % 100 == 0):
-                    debug_msg = (
-                        f"\n=== [Right Wrist Yaw Zeroing - Frame {frame_idx}] ===\n"
-                        f"  rw_yaw_alpha: {rw_yaw_alpha:.4f}\n"
-                        f"  rw_yaw_weight: {rw_yaw_weight:.2e}\n"
-                        f"  Current Yaw: {current_yaw_val:.4f} rad ({np.rad2deg(current_yaw_val):.2f} deg)\n"
-                        f"  Smooth Correction: {smooth_rw_correction:.4f}\n"
-                        f"  Expected Cost: {rw_yaw_weight * (smooth_rw_correction**2):.6f}\n"
-                    )
-                    print(debug_msg)
-                    with open(self.log_path, "a") as f:
-                        f.write(debug_msg)
-            except Exception as e:
-                if frame_idx == 0 or self.debug:
-                    print(f"[WARNING] Right wrist yaw zeroing constraint failed: {e}")
-                    with open(self.log_path, "a") as f:
-                        f.write(f"\n[WARNING Frame {frame_idx}] Right wrist yaw zeroing constraint failed: {e}\n")
 
         lap_term = cp.sum_squares(cp.multiply(sqrt_w3, lap_var - target_lap_vec))
         obj_terms.append(lap_term)

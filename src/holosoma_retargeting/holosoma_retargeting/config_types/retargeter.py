@@ -93,3 +93,16 @@ class RetargeterConfig:
     """Weight for smoothness cost that penalizes changes between consecutive frames.
     Higher values (e.g., 10.0) enforce stronger smoothness, reducing jitter but potentially making motion less responsive.
     Lower values (e.g., 0.2) allow more frame-to-frame variation."""
+
+    activate_right_wrist_yaw_zero_constraint: BoolWithExplicitValue = False
+    """Whether to enable right wrist yaw zeroing soft constraint."""
+
+    right_wrist_yaw_zero_frame_range: list[int] | None = None
+    """[start_frame, end_frame] where right wrist yaw zeroing is active.
+    Default: [580, 1300] if None."""
+
+    right_wrist_yaw_zero_ramp_frames: int = 200
+    """Number of frames for smooth transition (ramp-up/down) for right wrist yaw zeroing."""
+
+    right_wrist_yaw_zero_weight: float = 10.0
+    """Weight for right wrist yaw zeroing soft constraint."""

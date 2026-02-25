@@ -170,19 +170,22 @@ python examples/robot_retarget.py \
   --task-config.surface-weight-low 1 \
   --retargeter.activate-snooker-tracking False \
   --retargeter.activate-palm-flat-constraint True \
+  --retargeter.activate-right-wrist-yaw-zero-constraint True \
   --retargeter.activate-snooker-laplacian True \
   --retargeter.activate-realtime-rotation-tracking False \
   --retargeter.activate-general-nominal-tracking False \
   --retargeter.activate-obj-non-penetration \
   --retargeter.laplacian-frame-range 580 1300 \
   --retargeter.wrist-tracking-frame-range 350 1300 \
+  --retargeter.right-wrist-yaw-zero-frame-range 580 1300 \
   --retargeter.snooker-frame-range 580 1300 \
-  --retargeter.foot-sticking-tolerance 0.008 \
+  --retargeter.foot-sticking-tolerance 0.003 \
   --retargeter.penetration_tolerance 0.0005 \
   --retargeter.visualize \
   --retargeter.debug \
   --retargeter.visualization-interp-mult 1 \
-  --retargeter.smooth-weight 10.0 
+  --retargeter.smooth-weight 10.0 \
+  --retargeter.right-wrist-yaw-zero-weight 37.0
 
 ```
 

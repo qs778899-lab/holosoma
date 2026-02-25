@@ -610,6 +610,11 @@ def build_retargeter_kwargs_from_config(
         "visualization_fps": retargeter_config.visualization_fps,
         "visualization_interp_mult": retargeter_config.visualization_interp_mult,
         "smooth_weight": retargeter_config.smooth_weight,
+        # Right wrist yaw zeroing constraint
+        "activate_right_wrist_yaw_zero_constraint": retargeter_config.activate_right_wrist_yaw_zero_constraint,
+        "right_wrist_yaw_zero_frame_range": retargeter_config.right_wrist_yaw_zero_frame_range,
+        "right_wrist_yaw_zero_ramp_frames": retargeter_config.right_wrist_yaw_zero_ramp_frames,
+        "right_wrist_yaw_zero_weight": retargeter_config.right_wrist_yaw_zero_weight,
     }
     if task_type == "climbing":
         kwargs["nominal_tracking_tau"] = retargeter_config.nominal_tracking_tau
