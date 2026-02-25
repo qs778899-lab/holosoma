@@ -133,8 +133,8 @@ class InteractionMeshRetargeter:
             "CueTip": "right_wrist_yaw_link",
         }
         #! collision 
-        self.virtual_site_offsets = { 
-            "LeftHandBridge": np.array([0.045, 0.055, 0.017], dtype=float), #y轴：改变杆在手掌上方的高度
+        self.virtual_site_offsets = {  #搭杆点是基于人的点叠加偏移的？ 
+            "LeftHandBridge": np.array([0.045, 0.056, 0.017], dtype=float), #y轴：改变杆在手掌上方的高度
             "RightHandGrip": np.array([0.0415, -0.003, 0.0], dtype=float),
             "CueTip": np.array([0.1215, 0.017, 1.075], dtype=float),
         }
@@ -1395,7 +1395,7 @@ class InteractionMeshRetargeter:
                 obj_names.append("palm_flat_orientation")
                 palm_flat_constraint_added = True
 
-                #! wrist: 新增 - 左手腕 Z 高度软约束 (硬编码 0.665m)
+                #! wrist: 新增 - 左手腕 Z 高度软约束 (硬编码)
                 # 获取左手腕位置和雅可比
                 body_id = mujoco.mj_name2id(self.robot_model, mujoco.mjtObj.mjOBJ_BODY, "left_wrist_yaw_link")
                 curr_pos = self.robot_data.xpos[body_id]
@@ -1406,7 +1406,7 @@ class InteractionMeshRetargeter:
                 J_pos_full = Jp @ T
                 J_z = J_pos_full[2, self.q_a_indices] # 只取 Z 轴分量
                 
-                target_z = 0.675
+                target_z = 0.687 # left wrist height （手腕粗6厘米左右）
                 z_error = target_z - curr_pos[2]
                 smooth_z_correction = wrist_tracking_alpha * z_error
                 
