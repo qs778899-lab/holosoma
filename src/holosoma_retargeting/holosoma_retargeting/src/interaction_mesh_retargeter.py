@@ -1394,6 +1394,28 @@ class InteractionMeshRetargeter:
                 obj_terms.append(palm_flat_cost)
                 obj_names.append("palm_flat_orientation")
                 palm_flat_constraint_added = True
+
+                #! wrist: 新增 - 左手腕 Z 高度软约束 (硬编码 0.665m)
+                # 获取左手腕位置和雅可比
+                body_id = mujoco.mj_name2id(self.robot_model, mujoco.mjtObj.mjOBJ_BODY, "left_wrist_yaw_link")
+                curr_pos = self.robot_data.xpos[body_id]
+                Jp = np.zeros((3, self.robot_model.nv))
+                Jr = np.zeros((3, self.robot_model.nv))
+                mujoco.mj_jac(self.robot_model, self.robot_data, Jp, Jr, curr_pos.reshape(3,1), body_id)
+                T = self._build_transform_qdot_to_qvel_fast()
+                J_pos_full = Jp @ T
+                J_z = J_pos_full[2, self.q_a_indices] # 只取 Z 轴分量
+                
+                target_z = 0.675
+                z_error = target_z - curr_pos[2]
+                smooth_z_correction = wrist_tracking_alpha * z_error
+                
+                # 使用与姿态约束相同的权重
+                palm_z_cost = palm_flat_weight * cp.sum_squares(
+                    cp.Constant(smooth_z_correction) - J_z @ dqa
+                )
+                obj_terms.append(palm_z_cost)
+                obj_names.append("palm_flat_z_height")
                 
                 # 详细调试信息
                 if (frame_idx == 0) or (self.debug and frame_idx % 100 == 0):
@@ -1411,11 +1433,15 @@ class InteractionMeshRetargeter:
                         f"  wrist_tracking_alpha: {wrist_tracking_alpha:.4f}\n"
                         f"  palm_flat_weight: {palm_flat_weight:.2e}\n"
                         f"  Current Actual Euler (deg): Roll={curr_euler_actual[0]:.2f}, Pitch={curr_euler_actual[1]:.2f}, Yaw={curr_euler_actual[2]:.2f}\n"
+                        f"  Current Z-Height: {curr_pos[2]:.4f}m (Target: 0.665m)\n"
                         f"  Hardcoded Offset (deg): Roll={np.rad2deg(palm_roll_offset):.2f}, Pitch={np.rad2deg(palm_pitch_offset):.2f}\n"
                         f"  Current Error (deg): Roll={roll_deg:.2f}, Pitch={pitch_deg:.2f}\n"
+                        f"  Current Z-Error: {z_error:.4f}m\n"
                         f"  Smooth Correction (alpha*error): {np.rad2deg(smooth_correction)}\n"
-                        f"  J_ori shape: {J_ori.shape}\n"
+                        f"  Smooth Z-Correction: {smooth_z_correction:.4f}\n"
+                        f"  J_ori shape: {J_ori.shape}, J_z shape: {J_z.shape}\n"
                         f"  expected palm flat cost (pressure): {palm_flat_weight * np.sum(smooth_correction**2):.6f}\n"
+                        f"  expected palm z cost: {palm_flat_weight * (smooth_z_correction**2):.6f}\n"
                     )
                     print(debug_msg)
                     with open(self.log_path, "a") as f:

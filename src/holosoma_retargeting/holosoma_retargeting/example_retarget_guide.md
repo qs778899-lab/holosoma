@@ -122,9 +122,9 @@ demo_data/snooker/snooker_table/
 │   └── <geom type="box" .../>     # 桌面
 │   └── <geom type="cylinder" .../> # 4条桌腿
 │    
-├── snooker_table.obj              # 仅用于表面点采样（load_object_data）
+├── snooker_table.obj  (retarget时会对物体进行放缩，但是不保存新文件) # 仅用于表面点采样（load_object_data）
 │
-│── snooker_table.urdf             # 带scaled后缀版本参与retarget过程中的可视化
+│── snooker_table.urdf   # 带scaled后缀版本(_scaled_0.74_0.74_0.74)参与retarget过程中的可视化
 │── g1_29dof.urdf                  # 参与retarget过程中的可视化
 │   
 │
@@ -158,7 +158,7 @@ cd holosoma/src/holosoma_retargeting/holosoma_retargeting
 conda activate hsretargeting
 python examples/robot_retarget.py \
   --data-path snooker_npy \
-  --task-name snooker16 \
+  --task-name snooker17 \
   --task-type climbing \
   --data-format nokov \
   --save-dir snooker_results \
@@ -233,7 +233,7 @@ z=-0.84  ┴──────────────  桌腿底部
 
 python viser_player.py \
   --mjcf_path models/g1/scene_29dof_cue.xml \
-  --qpos_npz snooker_results/snooker16_original.npz
+  --qpos_npz snooker_results/snooker17_original.npz
 ```
 
 ### 5.6 自定义球桌参数

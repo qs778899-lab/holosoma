@@ -20,14 +20,14 @@
     <light pos="0 0 1.5" dir="0 0 -1" directional="true"/>
     <geom name="floor" size="0 0 0.05" type="plane" material="groundplane"/>
 
-    <!-- Snooker Table: Top Surface Height = 0.66m (0.62 body pos + 0.04 half size) -->
-    <body name="snooker_table" pos="0 -1.6 0.62">
+    <!-- Snooker Table: Height ~0.8m, Pos adjusted to be in front of robot -->
+    <body name="snooker_table" pos="0 -1.6 0.48">
       <geom type="box" size="0.7 0.5 0.04" rgba="0 0.4 0.1 1"/> <!-- Table Top (Green) -->
-      <!-- Legs: Height 0.58m, starts from ground (0) to table bottom (0.58) -->
-      <geom type="cylinder" size="0.04 0.29" pos="0.6 0.4 -0.33" rgba="0.2 0.1 0 1"/>
-      <geom type="cylinder" size="0.04 0.29" pos="0.6 -0.4 -0.33" rgba="0.2 0.1 0 1"/>
-      <geom type="cylinder" size="0.04 0.29" pos="-0.6 0.4 -0.33" rgba="0.2 0.1 0 1"/>
-      <geom type="cylinder" size="0.04 0.29" pos="-0.6 -0.4 -0.33" rgba="0.2 0.1 0 1"/>
+      <!-- Legs -->
+      <geom type="cylinder" size="0.04 0.4" pos="0.6 0.4 -0.4" rgba="0.2 0.1 0 1"/>
+      <geom type="cylinder" size="0.04 0.4" pos="0.6 -0.4 -0.4" rgba="0.2 0.1 0 1"/>
+      <geom type="cylinder" size="0.04 0.4" pos="-0.6 0.4 -0.4" rgba="0.2 0.1 0 1"/>
+      <geom type="cylinder" size="0.04 0.4" pos="-0.6 -0.4 -0.4" rgba="0.2 0.1 0 1"/>
     </body>
   
   </worldbody>
