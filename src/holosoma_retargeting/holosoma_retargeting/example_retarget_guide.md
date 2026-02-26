@@ -185,7 +185,8 @@ python examples/robot_retarget.py \
   --retargeter.debug \
   --retargeter.visualization-interp-mult 1 \
   --retargeter.smooth-weight 10.0 \
-  --retargeter.right-wrist-yaw-zero-weight 37.0
+  --retargeter.right-wrist-yaw-zero-weight 37.0 \
+  --retargeter.virtual-pos-target-z 0.78
 
 ```
 

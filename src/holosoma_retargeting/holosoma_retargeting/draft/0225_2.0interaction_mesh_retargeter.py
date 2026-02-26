@@ -76,9 +76,6 @@ class InteractionMeshRetargeter:
         right_wrist_yaw_zero_frame_range: list[int] | None = None,
         right_wrist_yaw_zero_ramp_frames: int = 300,
         right_wrist_yaw_zero_weight: float = 10.0,
-        virtual_pos_frame_range: list[int] | None = None,
-        virtual_pos_ramp_frames: int = 20,
-        virtual_pos_target_z: float = 0.7,
     ):
         """This kinematic retargeter solves the diffIK problem with hard constraints in SQP style.
         During each SQP iteration, the problem is solved with the following constraints and costs:
@@ -114,9 +111,6 @@ class InteractionMeshRetargeter:
         self.right_wrist_yaw_zero_frame_range = right_wrist_yaw_zero_frame_range if right_wrist_yaw_zero_frame_range is not None else [580, 1300]
         self.right_wrist_yaw_zero_ramp_frames = right_wrist_yaw_zero_ramp_frames
         self.right_wrist_yaw_zero_weight = right_wrist_yaw_zero_weight
-        self.virtual_pos_frame_range = virtual_pos_frame_range if virtual_pos_frame_range is not None else [10, 1300]
-        self.virtual_pos_ramp_frames = virtual_pos_ramp_frames
-        self.virtual_pos_target_z = virtual_pos_target_z
         self.foot_links = dict(zip(task_constants.FOOT_STICKING_LINKS, task_constants.FOOT_STICKING_LINKS))
         self.penetration_tolerance = penetration_tolerance
         self.step_size = step_size
@@ -167,7 +161,6 @@ class InteractionMeshRetargeter:
         print(f"  - Palm Flat Constraint Range: {self.wrist_tracking_frame_range}")
         print(f"  - Laplacian Range: {self.laplacian_frame_range}")
         print(f"  - Right Wrist Yaw Zeroing Range: {self.right_wrist_yaw_zero_frame_range}")
-        print(f"  - Virtual Position Compensation Range: {self.virtual_pos_frame_range}")
 
         # --- 初始化日志功能 ---
         # 使用相对于脚本所在目录的路径，确保存入 holosoma_retargeting/logs
@@ -397,12 +390,6 @@ class InteractionMeshRetargeter:
         """
         return self._calc_alpha_for_range(frame_idx, self.wrist_tracking_frame_range, ramp_frames=self.wrist_ramp_frames)
 
-    def _calc_virtual_pos_alpha(self, frame_idx: int) -> float:
-        """Compute virtual position height compensation activation alpha for a given frame index.
-        Uses virtual_pos_frame_range and virtual_pos_ramp_frames.
-        """
-        return self._calc_alpha_for_range(frame_idx, self.virtual_pos_frame_range, ramp_frames=self.virtual_pos_ramp_frames)
-
     def _calc_right_wrist_yaw_zero_alpha(self, frame_idx: int) -> float:
         """Compute right wrist yaw zeroing activation alpha for a given frame index.
         Uses right_wrist_yaw_zero_frame_range and right_wrist_yaw_zero_ramp_frames.
@@ -414,15 +401,14 @@ class InteractionMeshRetargeter:
         )
 
     #! cube：整个函数都是新增的。
-    def _get_active_laplacian_links(self, frame_idx: int) -> tuple[dict[str, str], float, float, float]:
+    def _get_active_laplacian_links(self, frame_idx: int) -> tuple[dict[str, str], float, float]:
         """Return active Laplacian links and alpha values for the given frame.
         
         Returns:
-            tuple: (active_links, laplacian_alpha, wrist_tracking_alpha, virtual_pos_alpha)
+            tuple: (active_links, laplacian_alpha, wrist_tracking_alpha)
         """
         laplacian_alpha = self._calc_laplacian_alpha(frame_idx)
         wrist_tracking_alpha = self._calc_wrist_tracking_alpha(frame_idx)
-        virtual_pos_alpha = self._calc_virtual_pos_alpha(frame_idx)
 
         active_links = dict(self.base_laplacian_match_links)
 
@@ -430,7 +416,7 @@ class InteractionMeshRetargeter:
         if self.activate_snooker_laplacian and self.has_snooker_hands:
             active_links.update(self.snooker_virtual_links)
 
-        return active_links, laplacian_alpha, wrist_tracking_alpha, virtual_pos_alpha
+        return active_links, laplacian_alpha, wrist_tracking_alpha
 
     def _compute_snooker_virtual_positions(
         self,
@@ -439,29 +425,17 @@ class InteractionMeshRetargeter:
         human_quat_full: np.ndarray | None,
         has_rot_data: bool,
         alpha: float = 1.0,  #! smooth: 新增：缩放因子用于平滑生长
-        virtual_pos_alpha: float = 0.0,  #! wrist: 新增：用于左手高度补偿
     ) -> dict[str, np.ndarray]:
         """Compute snooker virtual points in human space for the given frame."""
         if not self.has_snooker_hands:
             return {}
 
-        lh_pos = human_pos_full[frame_idx, self.left_hand_idx].copy()
+        lh_pos = human_pos_full[frame_idx, self.left_hand_idx]
         rh_pos = human_pos_full[frame_idx, self.right_hand_idx]
-
-        #! wrist: 左手环境对齐补偿
-        # 如果 virtual_pos_alpha > 0，说明左手虚拟点高度补偿正在生效。
-        # 我们同步补偿真人的左手高度，使其虚拟搭杆点平滑地升到目标高度。
-        if virtual_pos_alpha > 0:
-            current_lh_z = lh_pos[2]
-            desired_lh_z = self.virtual_pos_target_z
-            
-            # 补偿量 = (目标高度 - 当前高度) * virtual_pos_alpha（平滑过渡）
-            compensation = virtual_pos_alpha * (desired_lh_z - current_lh_z)
-            lh_pos[2] += compensation
 
         #! smooth ：偏移量随 alpha 平滑缩放
         # 这确保了在 alpha=0 时虚拟点重合在手腕原点，消除对走路姿态的干扰
-        v_offsets = {k: v * alpha for k, v in self.virtual_site_offsets.items()} #当alpha=0时，v_offsets为0，虚拟点重合在手腕原点
+        v_offsets = {k: v * alpha for k, v in self.virtual_site_offsets.items()}
         cue_grip_offset = self.snooker_cue_grip_offset * alpha
         cue_len = self.snooker_cue_length * alpha
 
@@ -708,8 +682,7 @@ class InteractionMeshRetargeter:
                 # 计算本帧活跃的网格顶点（按顺序返回）
                 # laplacian_alpha: 控制 Laplacian 虚拟点的添加和权重
                 # wrist_tracking_alpha: 控制手腕旋转追踪的权重
-                # virtual_pos_alpha: 控制左手虚拟点高度补偿的权重
-                active_links, laplacian_alpha, wrist_tracking_alpha, virtual_pos_alpha = self._get_active_laplacian_links(i)
+                active_links, laplacian_alpha, wrist_tracking_alpha = self._get_active_laplacian_links(i)
                 active_link_keys = list(active_links.keys())
                 active_link_names = list(active_links.values())
 
@@ -718,8 +691,7 @@ class InteractionMeshRetargeter:
                 if self.activate_snooker_laplacian and self.has_snooker_hands:
                     snooker_virtual_positions = self._compute_snooker_virtual_positions(
                         i, human_pos_full, human_quat_full, has_rot_data,
-                        alpha=laplacian_alpha,  #! smooth: 传递 alpha 实现偏移量平滑
-                        virtual_pos_alpha=virtual_pos_alpha  #! wrist: 传递 virtual_pos_alpha 用于左手高度补偿
+                        alpha=laplacian_alpha  #! smooth: 传递 alpha 实现偏移量平滑
                     )
                     
                     #! cube: 记录人类侧虚拟点位置到日志
@@ -756,27 +728,11 @@ class InteractionMeshRetargeter:
                 human_mapped_joints = []
                 for key in active_link_keys:
                     if key in self.base_key_to_idx:
-                        pt = base_human_joints[self.base_key_to_idx[key]].copy()
-                        #! smooth: 对 LeftHand 基础关节同步应用高度补偿
-                        # LeftHand 映射到 left_wrist_yaw_link，需要和 LeftHandBridge 虚拟点保持一致的目标高度
-                        if key == "LeftHand" and virtual_pos_alpha > 0 and self.has_snooker_hands:
-                            desired_lh_z = self.virtual_pos_target_z
-                            pt[2] += virtual_pos_alpha * (desired_lh_z - pt[2])
-                        human_mapped_joints.append(pt)
+                        human_mapped_joints.append(base_human_joints[self.base_key_to_idx[key]])
                     else:
                         human_mapped_joints.append(snooker_virtual_positions.get(key, np.zeros(3)))
 
                 human_mapped_joints = np.asarray(human_mapped_joints, dtype=float)
-
-                #! debug: 打印补偿后的 LeftHand 基础关节位置
-                if (i == 0) or (self.debug and i % 100 == 0):
-                    if "LeftHand" in active_link_keys:
-                        lh_idx_in_mapped = active_link_keys.index("LeftHand")
-                        lh_pos_mapped = human_mapped_joints[lh_idx_in_mapped]
-                        debug_msg = f"  Mapped LeftHand pos (after compensation): [{lh_pos_mapped[0]:.4f}, {lh_pos_mapped[1]:.4f}, {lh_pos_mapped[2]:.4f}]\n"
-                        print(debug_msg, end="")
-                        with open(self.log_path, "a") as f:
-                            f.write(debug_msg)
 
                 if self.object_name == "ground": #如果操作物体是“地面”，则认为物体的局部坐标系就是世界坐标系，无需坐标变换。
                     human_mapped_joints_in_object = human_mapped_joints
@@ -1083,7 +1039,7 @@ class InteractionMeshRetargeter:
         #! cube: Snooker activity logic (Frame Gating + Smooth Transition)
         # 获取 Laplacian 网格的 active_links 和 laplacian_alpha（用于虚拟点权重）
         # wrist_tracking_alpha 从参数传入，独立控制手腕追踪
-        active_links, laplacian_alpha, _, virtual_pos_alpha = self._get_active_laplacian_links(frame_idx)
+        active_links, laplacian_alpha, _ = self._get_active_laplacian_links(frame_idx)
 
         # 调试打印：确认网格顶点和 Tracking 状态
         # 强制在第 0 帧打印，后续每 100 帧在 debug 模式下打印
@@ -1099,7 +1055,6 @@ class InteractionMeshRetargeter:
             print(f"Tracking Status:")
             print(f"  - Laplacian Alpha: {laplacian_alpha:.2f}")
             print(f"  - Wrist Tracking Alpha: {wrist_tracking_alpha:.2f}")
-            print(f"  - Virtual Pos Alpha: {virtual_pos_alpha:.2f}")
             print(f"  - Wrist Rotation Tracking: {'ON' if wrist_track_on else 'OFF'}")
             print(f"  - General Nominal Tracking: {'ON' if general_track_on else 'OFF'}")
             if general_track_on:

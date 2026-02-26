@@ -615,6 +615,9 @@ def build_retargeter_kwargs_from_config(
         "right_wrist_yaw_zero_frame_range": retargeter_config.right_wrist_yaw_zero_frame_range,
         "right_wrist_yaw_zero_ramp_frames": retargeter_config.right_wrist_yaw_zero_ramp_frames,
         "right_wrist_yaw_zero_weight": retargeter_config.right_wrist_yaw_zero_weight,
+        "virtual_pos_frame_range": retargeter_config.virtual_pos_frame_range,
+        "virtual_pos_ramp_frames": retargeter_config.virtual_pos_ramp_frames,
+        "virtual_pos_target_z": retargeter_config.virtual_pos_target_z,
     }
     if task_type == "climbing":
         kwargs["nominal_tracking_tau"] = retargeter_config.nominal_tracking_tau

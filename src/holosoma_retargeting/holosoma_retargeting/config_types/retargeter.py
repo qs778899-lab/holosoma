@@ -106,3 +106,13 @@ class RetargeterConfig:
 
     right_wrist_yaw_zero_weight: float = 10.0
     """Weight for right wrist yaw zeroing soft constraint."""
+
+    virtual_pos_frame_range: list[int] | None = None
+    """[start_frame, end_frame] where human virtual position height compensation is active.
+    Default: [250, 1300] if None."""
+
+    virtual_pos_ramp_frames: int = 20
+    """Number of frames for smooth transition (ramp-up/down) for virtual position height compensation."""
+
+    virtual_pos_target_z: float = 0.7
+    """Target Z height for human virtual position height compensation."""
