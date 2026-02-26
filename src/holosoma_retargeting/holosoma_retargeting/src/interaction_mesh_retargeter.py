@@ -139,7 +139,7 @@ class InteractionMeshRetargeter:
             "CueTip": "right_wrist_yaw_link",
         }
         #! collision 
-        self.virtual_site_offsets = {  #搭杆点是基于人的点叠加偏移的？ 
+        self.virtual_site_offsets = {  
             "LeftHandBridge": np.array([0.045, 0.056, 0.017], dtype=float), #y轴：改变杆在手掌上方的高度
             "RightHandGrip": np.array([0.0415, -0.003, 0.0], dtype=float),
             "CueTip": np.array([0.1215, 0.017, 1.075], dtype=float),
@@ -448,9 +448,8 @@ class InteractionMeshRetargeter:
         lh_pos = human_pos_full[frame_idx, self.left_hand_idx].copy()
         rh_pos = human_pos_full[frame_idx, self.right_hand_idx]
 
-        #! wrist: 左手环境对齐补偿
+        #! wrist: 修改目标拉普拉斯网络中lefthand的z轴高度
         # 如果 virtual_pos_alpha > 0，说明左手虚拟点高度补偿正在生效。
-        # 我们同步补偿真人的左手高度，使其虚拟搭杆点平滑地升到目标高度。
         if virtual_pos_alpha > 0:
             current_lh_z = lh_pos[2]
             desired_lh_z = self.virtual_pos_target_z
