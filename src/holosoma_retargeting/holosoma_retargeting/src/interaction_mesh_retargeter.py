@@ -140,7 +140,7 @@ class InteractionMeshRetargeter:
         }
         #! collision 
         self.virtual_site_offsets = {  
-            "LeftHandBridge": np.array([0.045, 0.056, 0.017], dtype=float), #y轴：改变杆在手掌上方的高度
+            "LeftHandBridge": np.array([0.047, 0.048, 0.05], dtype=float), #y轴：改变杆在手掌上方的高度： 0.056 -> 0.035 -> 0.002； #z轴: 0.017 -> 0.012 -> 0.005； #x轴: 0.045 -> 0.047
             "RightHandGrip": np.array([0.0415, -0.003, 0.0], dtype=float),
             "CueTip": np.array([0.1215, 0.017, 1.075], dtype=float),
         }
