@@ -31,3 +31,7 @@ data_utils/lafan1
 snooker/
 snooker_npy/
 snooker_results/
+
+climb/
+climb_npy/
+climb_results/

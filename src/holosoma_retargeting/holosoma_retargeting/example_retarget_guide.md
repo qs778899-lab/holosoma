@@ -24,70 +24,13 @@ python data_utils/extract_global_positions.py \
   --input_dir snooker \
   --output_dir snooker_npy \
   --data_format nokov
+
+python data_utils/extract_global_positions.py \
+  --input_dir climb \
+  --output_dir climb_npy \
+  --data_format nokov
 ```
 
-## 3. 执行重定向
-
-```bash
-
-python examples/parallel_robot_retarget.py \
-  --data-dir snooker_npy \
-  --task-type robot_only \
-  --data_format nokov \
-  --save_dir snooker_results \
-  --task-config.object-name ground \
-  --task-config.ground-range -10 10 \
-  --retargeter.activate-snooker-tracking True \
-  --retargeter.activate-snooker-laplacian False \
-  --retargeter.activate-realtime-rotation-tracking False \
-  --retargeter.activate-general-nominal-tracking False \
-  --retargeter.snooker-frame-range 0 1680 \
-  --retargeter.foot-sticking-tolerance 0.02 \
-  --max-workers 12
-
-
-python examples/robot_retarget.py \
-  --data-path snooker_npy \
-  --task-name snooker3 \
-  --task-type robot_only \
-  --data-format nokov \
-  --save-dir snooker_results \
-  --task-config.object-name ground \
-  --task-config.ground-range -10 10 \
-  --retargeter.activate-snooker-tracking False \
-  --retargeter.activate-snooker-laplacian True \
-  --retargeter.activate-realtime-rotation-tracking False \
-  --retargeter.activate-general-nominal-tracking False \
-  --retargeter.laplacian-frame-range 580 1300 \
-  --retargeter.wrist-tracking-frame-range 0 1704 \
-  --retargeter.snooker-frame-range 580 1300 \
-  --retargeter.foot-sticking-tolerance 0.02 \
-  --retargeter.visualize \
-  --retargeter.debug \
-  --retargeter.visualization-interp-mult 1 \
-  --retargeter.smooth-weight 10.0 
-
-```
-
-**参数说明：**
-- --task-type robot_only/object_interaction/climbing: 任务模式
-- --task-config.object-name ground/largebox/multi_boxes: 交互对象
-- --task-config.ground-range -10 10: 定义了虚拟地面网格的物理范围，用于防止机器人脚部穿透地面
-- --retargeter.foot-sticking-tolerance 0.02: 足部贴地容差（单位：米）。当人体足部距离地面小于 2cm 时，算法会锁定机器人足部，防止产生“滑步”或“漂浮”感。
-可视化：蓝色点是人体关键点，绿色点是机器人实际点
-
-
-## 4. 可视化结果
-
-```bash
-
-python viser_player.py \
-  --robot_urdf models/g1/g1_29dof.urdf \
-  --qpos_npz snooker_results/snooker2_original.npz
-  
-python viser_player.py \
-  --mjcf_path models/g1/scene_29dof_cue.xml \
-  --qpos_npz snooker_results/snooker2.npz
 
 ```
 可视化xml文件
@@ -97,11 +40,11 @@ python -c "import mujoco.viewer; mujoco.viewer.launch()"
 
 
 
-## 5. 使用 Climbing 模式进行台球桌场景重定向
+## 3. 使用 Climbing 模式进行台球桌场景重定向
 
 当需要让机器人与静态物体（如台球桌）进行交互时，可以使用 `climbing` 任务类型。
 
-### 5.1 目录结构
+### 3.1 目录结构
 
 台球桌场景的文件在 `demo_data/snooker/snooker_table/` 目录下：
 
@@ -141,14 +84,14 @@ demo_data/snooker/snooker_table/
 
 
 
-### 5.2 球桌参数说明
+### 3.2 球桌参数说明
 
 球桌位置和尺寸（基于 `scene_29dof_cue.xml`）：
 - **世界位置**: (0, -1.6, 0.48) - 在机器人前方 1.6m，桌面高度 0.48m
 - **桌面尺寸**: 1.4m × 1.0m × 0.08m
 - **桌腿**: 4 根圆柱，半径 0.04m，高度 0.8m
 
-### 5.3 运行重定向命令
+### 3.3 运行重定向命令
 
 将你的 Mocap 数据（.npy 文件）放入 `snooker_table/` 目录后，运行：
 
@@ -190,7 +133,7 @@ python examples/robot_retarget.py \
 
 ```
 
-### 5.4 参数说明
+### 3.4 参数说明
 
 | 参数 | 说明 |
 |------|------|
@@ -228,7 +171,7 @@ z=-0.84  ┴──────────────  桌腿底部
 - `high=20, low=1`：桌面顶部被采样的概率是桌腿的 **20 倍**
 
 
-### 5.5 可视化结果
+### 3.5 可视化结果
 
 ```bash
 
@@ -237,7 +180,7 @@ python viser_player.py \
   --qpos_npz snooker_results/snooker17_original.npz
 ```
 
-### 5.6 自定义球桌参数
+### 3.6 自定义球桌参数
 
 如需修改球桌尺寸或位置，编辑以下文件：
 
@@ -250,3 +193,73 @@ python viser_player.py \
    - 编辑 `generate_snooker_mesh.py` 中的参数，重新运行生成新的 `.obj` 文件
    - 注意：OBJ 文件仅用于 `load_object_data` 的表面点采样，不影响 MuJoCo 的几何和碰撞
 
+
+
+## 4. 使用 Climbing 模式进行爬楼梯场景重定向
+
+### 4.1 目录结构
+
+爬楼梯场景的文件在 `demo_data/climb/mocap_climb_seq_8/` 目录下：
+
+```
+│  ═══════════════ Retargeting 核心文件（MuJoCo 仿真） ═══════════════
+│
+├── g1_29dof_spherehand_w_multi_boxes.xml   # 完整场景架构的XML，参与碰撞检测；但球桌的具体定义在include文件中,
+│   ├── <include file="box_assets.xml"/> 
+│   └── <include file="box_body.xml"/>   
+│
+├── box_assets.xml                 # MuJoCo 材质定义（material）
+│
+├── box_body.xml                   # MuJoCo 几何体定义（使用 box），参与碰撞检测
+│    
+├── multi_boxes.obj  (retarget时会对物体进行放缩，但是不保存新文件) # 仅用于表面点采样（load_object_data）
+│
+│── multi_boxes.urdf   # 带scaled后缀版本(_scaled_0.74_0.74_0.74)参与retarget过程中的可视化
+│
+│  ═══════════════ 工具和数据 ═══════════════
+│
+├── create_step_obj.py                       # 生成 multi_boxes.obj
+├── split_multi_boxes_to_box_models.py       # 生成 boxes_models 中的.obj文件
+```
+
+
+### 4.2 运行重定向命令
+
+```bash
+cd holosoma/src/holosoma_retargeting/holosoma_retargeting
+
+conda activate hsretargeting
+python examples/robot_retarget.py \
+  --data-path climb_npy \
+  --task-name climb58 \
+  --task-type climbing \
+  --data-format nokov \
+  --save-dir climb_results \
+  --task-config.object-name mocap_climb_seq_8 \
+  --task-config.object-dir demo_data/climb/mocap_climb_seq_8 \
+  --task-config.climbing-ground-range -2 2 \
+  --task-config.surface-weight-threshold 0.005 \
+  --task-config.surface-weight-high 20 \
+  --task-config.surface-weight-low 1 \
+  --retargeter.activate-snooker-tracking False \
+  --retargeter.activate-palm-flat-constraint False \
+  --retargeter.activate-right-wrist-yaw-zero-constraint False \
+  --retargeter.activate-snooker-laplacian False \
+  --retargeter.activate-realtime-rotation-tracking False \
+  --retargeter.activate-general-nominal-tracking False \
+  --retargeter.activate-obj-non-penetration \
+  --retargeter.foot-sticking-tolerance 0.003 \
+  --retargeter.penetration_tolerance 0.0005 \
+  --retargeter.visualize \
+  --retargeter.debug \
+  --retargeter.visualization-interp-mult 1 \
+  --retargeter.smooth-weight 5.0 
+```
+
+  **参数说明：**
+  - --task-type robot_only/object_interaction/climbing: 任务模式
+  - --task-config.object-name ground/largebox/multi_boxes: 交互对象
+  - --task-config.ground-range -10 10: 定义了虚拟地面网格的物理范围，用于防止机器人脚部穿透地面
+  - --retargeter.foot-sticking-tolerance 0.003: 足部贴地容差（单位：米）。当人体足部距离地面小于 0.3cm 时，算法会锁定机器人足部，防止产生“滑步”或“漂浮”感。
+
+  - 可视化：蓝色点是人体关键点，绿色点是机器人实际点
