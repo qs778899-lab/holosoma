@@ -413,7 +413,7 @@ class InteractionMeshRetargeter:
             ramp_frames=self.right_wrist_yaw_zero_ramp_frames
         )
 
-    #! cube：整个函数都是新增的。
+    #! cube：整个函数都是新增的
     def _get_active_laplacian_links(self, frame_idx: int) -> tuple[dict[str, str], float, float, float]:
         """Return active Laplacian links and alpha values for the given frame.
         
@@ -426,7 +426,7 @@ class InteractionMeshRetargeter:
 
         active_links = dict(self.base_laplacian_match_links)
 
-        #! smooth: 优化：只要开启了功能，就始终包含虚拟点，确保拓扑结构连续
+        #! smooth: 只要开启了self.activate_snooker_laplacian，拉普拉斯网络就始终包含虚拟点，确保拓扑结构连续
         if self.activate_snooker_laplacian and self.has_snooker_hands:
             active_links.update(self.snooker_virtual_links)
 
@@ -1405,7 +1405,7 @@ class InteractionMeshRetargeter:
                     with open(self.log_path, "a") as f:
                         f.write(f"\n[WARNING Frame {frame_idx}] Right wrist global rotation tracking failed: {e}\n")
 
-        #! wrist: 新增 - 左手掌平贴约束（仅约束姿态 Roll/Pitch，不约束位置）
+        #! wrist: 新增 - 左手掌平贴约束（约束Roll和Pitch）和z高度约束
         palm_flat_constraint_added = False
         if self.activate_palm_flat_constraint and wrist_tracking_alpha > 0:
             try:

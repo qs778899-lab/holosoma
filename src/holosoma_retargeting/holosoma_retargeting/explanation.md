@@ -323,7 +323,7 @@ $$ \text{s.t. } A \Delta q \le b $$
     原项目参数传递链长，不能遗漏环节：
     命令行参数
     → RetargeterConfig (retargeter.py)        ✅ 有新参数
-    → build_retargeter_kwargs_from_config()   ❌ 没有传递新参数  ← 断点在这里
+    → build_retargeter_kwargs_from_config()   
     → InteractionMeshRetargeter.__init__()    ✅ 有新参数接收
 
 
