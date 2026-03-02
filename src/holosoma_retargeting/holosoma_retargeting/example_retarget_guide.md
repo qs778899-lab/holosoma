@@ -238,6 +238,7 @@ python examples/robot_retarget.py \
   --task-config.object-name multi_boxes \
   --task-config.object-dir demo_data/climb/mocap_climb_seq_8 \
   --task-config.climbing-ground-range -2 2 \
+  --retargeter.step-size 0.2 \
   --task-config.surface-weight-threshold 0.005 \
   --task-config.surface-weight-high 20 \
   --task-config.surface-weight-low 1 \
@@ -253,7 +254,7 @@ python examples/robot_retarget.py \
   --retargeter.visualize \
   --retargeter.debug \
   --retargeter.visualization-interp-mult 1 \
-  --retargeter.smooth-weight 5.0 
+  --retargeter.smooth-weight 7.0 
 ```
 
   **参数说明：**
