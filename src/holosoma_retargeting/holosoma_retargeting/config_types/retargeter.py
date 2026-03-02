@@ -116,3 +116,15 @@ class RetargeterConfig:
 
     virtual_pos_target_z: float = 0.7
     """Target Z height for human virtual position height compensation."""
+
+    activate_foot_leg_weight_boost: BoolWithExplicitValue = False
+    """Whether to boost weights for feet and legs in Laplacian mesh."""
+
+    foot_leg_boost_weight: float = 20.0
+    """Target boosted weight for feet and legs."""
+
+    foot_leg_boost_frame_range: list[int] | None = None
+    """[start_frame, end_frame] where foot and leg weight boost is active."""
+
+    foot_leg_boost_ramp_frames: int = 50
+    """Number of frames for smooth transition (ramp-up/down) for weight boost."""

@@ -429,7 +429,7 @@ def setup_object_data(
                 if p[2] > task_config.surface_weight_threshold
                 else task_config.surface_weight_low
             ),
-            sample_count=130, # 采样点数量
+            sample_count=210, # 采样点数量
         )
 
         if augmentation:
@@ -618,6 +618,11 @@ def build_retargeter_kwargs_from_config(
         "virtual_pos_frame_range": retargeter_config.virtual_pos_frame_range,
         "virtual_pos_ramp_frames": retargeter_config.virtual_pos_ramp_frames,
         "virtual_pos_target_z": retargeter_config.virtual_pos_target_z,
+        # Foot and leg weight boost
+        "activate_foot_leg_weight_boost": retargeter_config.activate_foot_leg_weight_boost,
+        "foot_leg_boost_weight": retargeter_config.foot_leg_boost_weight,
+        "foot_leg_boost_frame_range": retargeter_config.foot_leg_boost_frame_range,
+        "foot_leg_boost_ramp_frames": retargeter_config.foot_leg_boost_ramp_frames,
     }
     if task_type == "climbing":
         kwargs["nominal_tracking_tau"] = retargeter_config.nominal_tracking_tau

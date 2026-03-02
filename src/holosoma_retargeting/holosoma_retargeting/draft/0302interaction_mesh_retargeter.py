@@ -79,11 +79,6 @@ class InteractionMeshRetargeter:
         virtual_pos_frame_range: list[int] | None = None,
         virtual_pos_ramp_frames: int = 20,
         virtual_pos_target_z: float = 0.7,
-        # Foot and leg weight boost
-        activate_foot_leg_weight_boost: bool = False,
-        foot_leg_boost_weight: float = 20.0,
-        foot_leg_boost_frame_range: list[int] | None = None,
-        foot_leg_boost_ramp_frames: int = 50,
     ):
         """This kinematic retargeter solves the diffIK problem with hard constraints in SQP style.
         During each SQP iteration, the problem is solved with the following constraints and costs:
@@ -122,11 +117,6 @@ class InteractionMeshRetargeter:
         self.virtual_pos_frame_range = virtual_pos_frame_range if virtual_pos_frame_range is not None else [10, 1300]
         self.virtual_pos_ramp_frames = virtual_pos_ramp_frames
         self.virtual_pos_target_z = virtual_pos_target_z
-        # Foot and leg weight boost
-        self.activate_foot_leg_weight_boost = activate_foot_leg_weight_boost
-        self.foot_leg_boost_weight = foot_leg_boost_weight
-        self.foot_leg_boost_frame_range = foot_leg_boost_frame_range if foot_leg_boost_frame_range is not None else [0, 99999]
-        self.foot_leg_boost_ramp_frames = foot_leg_boost_ramp_frames
         self.foot_links = dict(zip(task_constants.FOOT_STICKING_LINKS, task_constants.FOOT_STICKING_LINKS))
         self.penetration_tolerance = penetration_tolerance
         self.step_size = step_size
@@ -1261,20 +1251,6 @@ class InteractionMeshRetargeter:
             w_v[rh_grip_idx] = snooker_weight
             w_v[lh_bridge_idx] = snooker_weight
             w_v[cue_tip_idx] = snooker_weight
-
-        #! foot: 应用脚部和小腿权重增强
-        if self.activate_foot_leg_weight_boost:
-            boost_alpha = self._calc_alpha_for_range(
-                frame_idx, self.foot_leg_boost_frame_range, self.foot_leg_boost_ramp_frames
-            )
-            if boost_alpha > 0:
-                target_keys = ["LeftFoot", "RightFoot", "LeftFootMod", "RightFootMod"]  #, "LeftLeg", "RightLeg"
-                # 线性过渡：从 1.0 过渡到目标权重
-                current_boost_w = 1.0 + (self.foot_leg_boost_weight - 1.0) * boost_alpha
-                for key in target_keys:
-                    if key in self.base_key_to_idx:
-                        idx = self.base_key_to_idx[key]
-                        w_v[idx] = current_boost_w
 
         sqrt_w3 = np.sqrt(np.repeat(w_v, 3))
 

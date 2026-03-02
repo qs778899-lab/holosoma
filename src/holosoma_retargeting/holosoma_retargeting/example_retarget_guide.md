@@ -242,6 +242,10 @@ python examples/robot_retarget.py \
   --task-config.surface-weight-threshold 0.005 \
   --task-config.surface-weight-high 20 \
   --task-config.surface-weight-low 1 \
+  --retargeter.activate-foot-leg-weight-boost True \
+  --retargeter.foot-leg-boost-weight 150.0 \
+  --retargeter.foot-leg-boost-frame-range 50 2000 \
+  --retargeter.foot-leg-boost-ramp-frames 50 \
   --retargeter.activate-snooker-tracking False \
   --retargeter.activate-palm-flat-constraint False \
   --retargeter.activate-right-wrist-yaw-zero-constraint False \
