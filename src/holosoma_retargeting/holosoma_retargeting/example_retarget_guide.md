@@ -231,11 +231,11 @@ cd holosoma/src/holosoma_retargeting/holosoma_retargeting
 conda activate hsretargeting
 python examples/robot_retarget.py \
   --data-path climb_npy \
-  --task-name climb58 \
+  --task-name climb59 \
   --task-type climbing \
   --data-format nokov \
   --save-dir climb_results \
-  --task-config.object-name mocap_climb_seq_8 \
+  --task-config.object-name multi_boxes \
   --task-config.object-dir demo_data/climb/mocap_climb_seq_8 \
   --task-config.climbing-ground-range -2 2 \
   --task-config.surface-weight-threshold 0.005 \
@@ -248,7 +248,7 @@ python examples/robot_retarget.py \
   --retargeter.activate-realtime-rotation-tracking False \
   --retargeter.activate-general-nominal-tracking False \
   --retargeter.activate-obj-non-penetration \
-  --retargeter.foot-sticking-tolerance 0.003 \
+  --retargeter.foot-sticking-tolerance 0.001 \
   --retargeter.penetration_tolerance 0.0005 \
   --retargeter.visualize \
   --retargeter.debug \
@@ -263,3 +263,5 @@ python examples/robot_retarget.py \
   - --retargeter.foot-sticking-tolerance 0.003: 足部贴地容差（单位：米）。当人体足部距离地面小于 0.3cm 时，算法会锁定机器人足部，防止产生“滑步”或“漂浮”感。
 
   - 可视化：蓝色点是人体关键点，绿色点是机器人实际点
+
+  
