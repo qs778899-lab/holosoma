@@ -421,15 +421,17 @@ def setup_object_data(
 
         np.random.seed(0)
         print("object mesh file: ", constants.OBJECT_MESH_FILE)
+        #! sample
         object_local_pts, object_local_pts_demo_original = load_object_data(
             constants.OBJECT_MESH_FILE,
             smpl_scale=smpl_scale,
-            surface_weights=lambda p: (
+            surface_weights=lambda n, p: (
                 task_config.surface_weight_high
-                if p[2] > task_config.surface_weight_threshold
+                if (p[2] > task_config.surface_weight_threshold and n[2] > 0.9)
                 else task_config.surface_weight_low
             ),
-            sample_count=210, # 采样点数量
+            sample_count=250, # 采样点数量
+            use_face_normals=True,
         )
 
         if augmentation:
@@ -591,6 +593,7 @@ def build_retargeter_kwargs_from_config(
         "activate_joint_limits": retargeter_config.activate_joint_limits,
         "activate_obj_non_penetration": retargeter_config.activate_obj_non_penetration,
         "activate_foot_sticking": retargeter_config.activate_foot_sticking,
+        "collision_detection_threshold": retargeter_config.collision_detection_threshold,
         "penetration_tolerance": retargeter_config.penetration_tolerance,
         "foot_sticking_tolerance": retargeter_config.foot_sticking_tolerance,
         "step_size": retargeter_config.step_size,
@@ -623,6 +626,8 @@ def build_retargeter_kwargs_from_config(
         "foot_leg_boost_weight": retargeter_config.foot_leg_boost_weight,
         "foot_leg_boost_frame_range": retargeter_config.foot_leg_boost_frame_range,
         "foot_leg_boost_ramp_frames": retargeter_config.foot_leg_boost_ramp_frames,
+        "leg_self_collision_margin": retargeter_config.leg_self_collision_margin,
+        "leg_self_collision_detection_threshold": retargeter_config.leg_self_collision_detection_threshold,
     }
     if task_type == "climbing":
         kwargs["nominal_tracking_tau"] = retargeter_config.nominal_tracking_tau

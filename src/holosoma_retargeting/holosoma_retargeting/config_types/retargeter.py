@@ -36,6 +36,9 @@ class RetargeterConfig:
     penetration_tolerance: float = 0.001
     """Tolerance for penetration when enforcing non-penetration constraints."""
 
+    collision_detection_threshold: float = 0.1
+    """Large-scale distance threshold (meters) to start detecting any collisions."""
+
     foot_sticking_tolerance: float = 1e-3
     """Tolerance for foot sticking constraints in x, y."""
 
@@ -128,3 +131,9 @@ class RetargeterConfig:
 
     foot_leg_boost_ramp_frames: int = 50
     """Number of frames for smooth transition (ramp-up/down) for weight boost."""
+
+    leg_self_collision_margin: float = 0.0
+    """Safety margin (minimum distance in meters) for leg-to-leg self-collision."""
+
+    leg_self_collision_detection_threshold: float = 0.02
+    """Distance threshold (meters) to activate cross-side leg self-collision constraints."""

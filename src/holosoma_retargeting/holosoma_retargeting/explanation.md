@@ -326,6 +326,14 @@ $$ \text{s.t. } A \Delta q \le b $$
     → build_retargeter_kwargs_from_config()   
     → InteractionMeshRetargeter.__init__()    ✅ 有新参数接收
 
+12. 腿部自碰撞检测约束增加导致求解失败：
+
+    多级 fallback 机制
+
+
+
+
+
 
 ## 7. 工程细节和易错点:
 

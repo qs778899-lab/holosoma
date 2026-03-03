@@ -238,7 +238,7 @@ python examples/robot_retarget.py \
   --task-config.object-name multi_boxes \
   --task-config.object-dir demo_data/climb/mocap_climb_seq_8 \
   --task-config.climbing-ground-range -2 2 \
-  --retargeter.step-size 0.2 \
+  --retargeter.step-size 0.4 \
   --task-config.surface-weight-threshold 0.005 \
   --task-config.surface-weight-high 20 \
   --task-config.surface-weight-low 1 \
@@ -246,6 +246,8 @@ python examples/robot_retarget.py \
   --retargeter.foot-leg-boost-weight 150.0 \
   --retargeter.foot-leg-boost-frame-range 50 2000 \
   --retargeter.foot-leg-boost-ramp-frames 50 \
+  --retargeter.leg-self-collision-margin 0.04 \
+  --retargeter.leg-self-collision-detection-threshold 0.12 \
   --retargeter.activate-snooker-tracking False \
   --retargeter.activate-palm-flat-constraint False \
   --retargeter.activate-right-wrist-yaw-zero-constraint False \
@@ -254,11 +256,11 @@ python examples/robot_retarget.py \
   --retargeter.activate-general-nominal-tracking False \
   --retargeter.activate-obj-non-penetration \
   --retargeter.foot-sticking-tolerance 0.001 \
-  --retargeter.penetration_tolerance 0.0005 \
+  --retargeter.penetration_tolerance 0.002 \
   --retargeter.visualize \
   --retargeter.debug \
   --retargeter.visualization-interp-mult 1 \
-  --retargeter.smooth-weight 7.0 
+  --retargeter.smooth-weight 3.0 
 ```
 
   **参数说明：**
@@ -266,7 +268,14 @@ python examples/robot_retarget.py \
   - --task-config.object-name ground/largebox/multi_boxes: 交互对象
   - --task-config.ground-range -10 10: 定义了虚拟地面网格的物理范围，用于防止机器人脚部穿透地面
   - --retargeter.foot-sticking-tolerance 0.003: 足部贴地容差（单位：米）。当人体足部距离地面小于 0.3cm 时，算法会锁定机器人足部，防止产生“滑步”或“漂浮”感。
+  - --retargeter.leg-self-collision-detection-threshold: 仅当跨侧腿 pair 的距离 phi <= 该阈值 时，才添加腿部自碰撞约束
+  - 
 
   - 可视化：蓝色点是人体关键点，绿色点是机器人实际点
 
-  
+
+### 4.3 可视化结果
+
+python viser_player.py \
+  --mjcf_path demo_data/climb/mocap_climb_seq_8/g1_29dof_w_multi_boxes_scaled_0.74_0.74_0.74.xml \
+  --qpos_npz climb_results/climb59_original.npz

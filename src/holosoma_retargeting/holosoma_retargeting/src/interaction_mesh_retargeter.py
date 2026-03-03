@@ -84,6 +84,8 @@ class InteractionMeshRetargeter:
         foot_leg_boost_weight: float = 20.0,
         foot_leg_boost_frame_range: list[int] | None = None,
         foot_leg_boost_ramp_frames: int = 50,
+        leg_self_collision_margin: float = 0.0,
+        leg_self_collision_detection_threshold: float = 0.02,
     ):
         """This kinematic retargeter solves the diffIK problem with hard constraints in SQP style.
         During each SQP iteration, the problem is solved with the following constraints and costs:
@@ -126,7 +128,9 @@ class InteractionMeshRetargeter:
         self.activate_foot_leg_weight_boost = activate_foot_leg_weight_boost
         self.foot_leg_boost_weight = foot_leg_boost_weight
         self.foot_leg_boost_frame_range = foot_leg_boost_frame_range if foot_leg_boost_frame_range is not None else [0, 99999]
-        self.foot_leg_boost_ramp_frames = foot_leg_boost_ramp_frames
+        self.foot_leg_boost_ramp_frames = foot_leg_boost_ramp_frames if foot_leg_boost_ramp_frames is not None else 50
+        self.leg_self_collision_margin = leg_self_collision_margin
+        self.leg_self_collision_detection_threshold = leg_self_collision_detection_threshold
         self.foot_links = dict(zip(task_constants.FOOT_STICKING_LINKS, task_constants.FOOT_STICKING_LINKS))
         self.penetration_tolerance = penetration_tolerance
         self.step_size = step_size
@@ -1315,13 +1319,40 @@ class InteractionMeshRetargeter:
                         Jxy @ dqa <= p_ub[:2],
                     ]
 
-        # Non-penetration constraints
-        Js, phis = self._update_jacobians_and_phis_from_q(q)
+        #! leg collision: Non-penetration constraints
+        Js, phis = self._update_jacobians_and_phis_from_q(q) #phis包括各种约束
+        # 将腿部自碰撞约束单独收集，以便 fallback 时可以独立移除
+        leg_collision_constraints = []
         for key, phi in phis.items():
+            g1, g2 = key
+            name1 = self._geom_names[g1]
+            name2 = self._geom_names[g2]
+
+            # --- 左右腿跨侧自碰撞检测阈值定制 ---  筛选
+            leg_keywords = ["left_hip_pitch_link", "left_knee_link", "right_hip_pitch_link", "right_knee_link"]
+            is_leg1 = any(k in name1 for k in leg_keywords)
+            is_leg2 = any(k in name2 for k in leg_keywords)
+            # 仅当一个是左腿组件，一个是右腿组件时，应用定制 margin
+            is_cross_side_leg = is_leg1 and is_leg2 and (("left" in name1 and "right" in name2) or ("right" in name1 and "left" in name2))
+
+            # 仅当跨侧腿部对已经接近到独立阈值内，才添加该自碰撞约束
+            if is_cross_side_leg and (phi > self.leg_self_collision_detection_threshold):
+                continue
+
+            # 如果是腿部碰撞，使用定制的 margin；否则使用默认的 -penetration_tolerance
+            current_margin = self.leg_self_collision_margin if is_cross_side_leg else -self.penetration_tolerance
+
             Ja_n_full = Js[key]
             Ja_n = Ja_n_full[self.q_a_indices]
-            rhs = -phi - self.penetration_tolerance
-            constraints += [Ja_n @ dqa >= rhs]
+            rhs = current_margin - phi
+            c = Ja_n @ dqa >= rhs
+            if is_cross_side_leg:
+                leg_collision_constraints.append(c)
+            else:
+                constraints.append(c)
+
+        # 将腿部约束加入（作为独立组，方便 fallback 时整组移除）
+        constraints += leg_collision_constraints
 
         # Joint limits constraints (actuated)
         if self.activate_joint_limits:
@@ -1619,10 +1650,32 @@ class InteractionMeshRetargeter:
              for name, term in zip(obj_names, obj_terms):
                  term_val = term.value if term.value is not None else float('nan')
                  print(f"  - {name}: {term_val:.2f}")
-        if (problem.status not in (cp.OPTIMAL, cp.OPTIMAL_INACCURATE)) and init_t:
-            constraints = [c for c in constraints if not isinstance(c, cp.constraints.second_order.SOC)]
-            problem = cp.Problem(cp.Minimize(cp.sum(obj_terms)), constraints)
-            problem.solve(solver=cp.CLARABEL, **solver_kwargs)
+        #! leg collision
+        # if (problem.status not in (cp.OPTIMAL, cp.OPTIMAL_INACCURATE)) and init_t:
+        #     constraints = [c for c in constraints if not isinstance(c, cp.constraints.second_order.SOC)]
+        #     problem = cp.Problem(cp.Minimize(cp.sum(obj_terms)), constraints)
+        #     problem.solve(solver=cp.CLARABEL, **solver_kwargs)
+        # --- 多级降级 fallback，对所有帧有效 ---
+        if problem.status not in (cp.OPTIMAL, cp.OPTIMAL_INACCURATE):
+            # Level 2: 移除腿部自碰撞约束后重试
+            if leg_collision_constraints:
+                leg_set = set(id(c) for c in leg_collision_constraints)
+                constraints_no_leg = [c for c in constraints if id(c) not in leg_set]
+                problem2 = cp.Problem(cp.Minimize(cp.sum(obj_terms)), constraints_no_leg)
+                problem2.solve(solver=cp.CLARABEL, **solver_kwargs)
+                if problem2.status in (cp.OPTIMAL, cp.OPTIMAL_INACCURATE):
+                    print(f"[Fallback L2 Frame {frame_idx}] 移除腿部自碰撞约束后求解成功")
+                    problem = problem2
+
+        if problem.status not in (cp.OPTIMAL, cp.OPTIMAL_INACCURATE):
+            # Level 3: 同时移除 SOC（步长约束）和腿部约束后重试
+            leg_set = set(id(c) for c in leg_collision_constraints)
+            constraints_relaxed = [c for c in constraints if not isinstance(c, cp.constraints.second_order.SOC) and id(c) not in leg_set]
+            problem3 = cp.Problem(cp.Minimize(cp.sum(obj_terms)), constraints_relaxed)
+            problem3.solve(solver=cp.CLARABEL, **solver_kwargs)
+            if problem3.status in (cp.OPTIMAL, cp.OPTIMAL_INACCURATE):
+                print(f"[Fallback L3 Frame {frame_idx}] 移除腿部约束+SOC约束后求解成功")
+                problem = problem3
 
         if problem.status not in (cp.OPTIMAL, cp.OPTIMAL_INACCURATE):
             raise RuntimeError(f"CVXPY solve failed: {problem.status}")
@@ -1958,6 +2011,16 @@ class InteractionMeshRetargeter:
                 # 排除掉球杆与其直接挂载点（右手腕）的碰撞，防止自碰撞导致优化失败
                 is_right_wrist = "right_wrist" in name1 or "right_wrist" in name2
                 if not is_right_wrist:
+                    return True
+
+            #! leg collision --- 左右腿跨侧自碰撞检测 ---
+            leg_keywords = ["left_hip_pitch_link", "left_knee_link", "right_hip_pitch_link", "right_knee_link"]
+            is_leg1 = any(k in name1 for k in leg_keywords)
+            is_leg2 = any(k in name2 for k in leg_keywords)
+            if is_leg1 and is_leg2:
+                # 仅当一个是左腿组件，一个是右腿组件时，允许碰撞检测（排除同侧相邻碰撞）
+                is_cross_side = ("left" in name1 and "right" in name2) or ("right" in name1 and "left" in name2)
+                if is_cross_side:
                     return True
 
             if self.object_name in name1 and "ground" in name2:
