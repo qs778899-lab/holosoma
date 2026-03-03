@@ -7,6 +7,7 @@ from pathlib import Path
 
 
 #python check_bvh_alignment.py snooker/snooker2.bvh
+#python check_bvh_alignment.py climb/climb59.bvh
 
 # Add the current directory and its parent to sys.path to import local modules
 current_dir = Path(__file__).resolve().parent

@@ -137,3 +137,15 @@ class RetargeterConfig:
 
     leg_self_collision_detection_threshold: float = 0.02
     """Distance threshold (meters) to activate cross-side leg self-collision constraints."""
+
+    activate_foot_xy_tracking: BoolWithExplicitValue = False
+    """Whether to enable foot XY absolute position tracking soft constraint."""
+
+    foot_xy_tracking_weight: float = 10.0
+    """Weight for foot XY absolute position tracking soft constraint."""
+
+    foot_xy_tracking_frame_range: list[int] | None = None
+    """[start_frame, end_frame] where foot XY tracking is active."""
+
+    foot_xy_tracking_ramp_frames: int = 50
+    """Number of frames for smooth transition (ramp-up/down) for foot XY tracking."""

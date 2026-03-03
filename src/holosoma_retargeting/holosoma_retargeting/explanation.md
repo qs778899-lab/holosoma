@@ -335,6 +335,8 @@ $$ \text{s.t. } A \Delta q \le b $$
 
 
 
+
+
 ## 7. 工程细节和易错点:
 
     1. 首先要注意四元数是xyzw还是wxyz，不同的库是不一样的。pinocchio库、scipy库和isaacgym都是xyzw。

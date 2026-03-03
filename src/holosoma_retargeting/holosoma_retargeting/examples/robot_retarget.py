@@ -628,6 +628,11 @@ def build_retargeter_kwargs_from_config(
         "foot_leg_boost_ramp_frames": retargeter_config.foot_leg_boost_ramp_frames,
         "leg_self_collision_margin": retargeter_config.leg_self_collision_margin,
         "leg_self_collision_detection_threshold": retargeter_config.leg_self_collision_detection_threshold,
+        # Foot XY tracking
+        "activate_foot_xy_tracking": retargeter_config.activate_foot_xy_tracking,
+        "foot_xy_tracking_weight": retargeter_config.foot_xy_tracking_weight,
+        "foot_xy_tracking_frame_range": retargeter_config.foot_xy_tracking_frame_range,
+        "foot_xy_tracking_ramp_frames": retargeter_config.foot_xy_tracking_ramp_frames,
     }
     if task_type == "climbing":
         kwargs["nominal_tracking_tau"] = retargeter_config.nominal_tracking_tau

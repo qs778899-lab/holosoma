@@ -86,6 +86,11 @@ class InteractionMeshRetargeter:
         foot_leg_boost_ramp_frames: int = 50,
         leg_self_collision_margin: float = 0.0,
         leg_self_collision_detection_threshold: float = 0.02,
+        # Foot XY tracking
+        activate_foot_xy_tracking: bool = False,
+        foot_xy_tracking_weight: float = 10.0,
+        foot_xy_tracking_frame_range: list[int] | None = None,
+        foot_xy_tracking_ramp_frames: int = 50,
     ):
         """This kinematic retargeter solves the diffIK problem with hard constraints in SQP style.
         During each SQP iteration, the problem is solved with the following constraints and costs:
@@ -141,6 +146,12 @@ class InteractionMeshRetargeter:
         self.demo_joints = task_constants.DEMO_JOINTS
         self.task_constants = task_constants
 
+        #! foot tracking: 存储参数
+        self.activate_foot_xy_tracking = activate_foot_xy_tracking
+        self.foot_xy_tracking_weight = foot_xy_tracking_weight
+        self.foot_xy_tracking_frame_range = foot_xy_tracking_frame_range
+        self.foot_xy_tracking_ramp_frames = foot_xy_tracking_ramp_frames
+
         # 基础 Laplacian 映射来自配置（不包含 snooker 虚拟点）
         self.base_laplacian_match_links = task_constants.JOINTS_MAPPING
         self.base_link_keys = list(self.base_laplacian_match_links.keys())
@@ -182,6 +193,7 @@ class InteractionMeshRetargeter:
         print(f"  - Laplacian Range: {self.laplacian_frame_range}")
         print(f"  - Right Wrist Yaw Zeroing Range: {self.right_wrist_yaw_zero_frame_range}")
         print(f"  - Virtual Position Compensation Range: {self.virtual_pos_frame_range}")
+        print(f"  - Foot XY Tracking Range: {self.foot_xy_tracking_frame_range}")
 
         # --- 初始化日志功能 ---
         # 使用相对于脚本所在目录的路径，确保存入 holosoma_retargeting/logs
@@ -196,7 +208,8 @@ class InteractionMeshRetargeter:
             f.write(f"- activate_snooker_laplacian: {self.activate_snooker_laplacian}\n")
             f.write(f"- activate_realtime_rotation_tracking: {self.activate_realtime_rotation_tracking}\n")
             f.write(f"- activate_general_nominal_tracking: {self.activate_general_nominal_tracking}\n")
-            f.write(f"- activate_palm_flat_constraint: {self.activate_palm_flat_constraint}\n")
+            f.write(            f"- activate_palm_flat_constraint: {self.activate_palm_flat_constraint}\n")
+            f.write(f"- activate_foot_xy_tracking: {self.activate_foot_xy_tracking}\n")
             f.write(f"- activate_right_wrist_yaw_zero_constraint: {self.activate_right_wrist_yaw_zero_constraint}\n\n")
 
         self.smplh_mapped_joint_indices = [self.demo_joints.index(name) for name in self.base_link_keys]
@@ -425,6 +438,16 @@ class InteractionMeshRetargeter:
             frame_idx, 
             self.right_wrist_yaw_zero_frame_range, 
             ramp_frames=self.right_wrist_yaw_zero_ramp_frames
+        )
+
+    def _calc_foot_xy_tracking_alpha(self, frame_idx: int) -> float:
+        """Compute foot XY tracking activation alpha for a given frame index.
+        Uses foot_xy_tracking_frame_range and foot_xy_tracking_ramp_frames.
+        """
+        return self._calc_alpha_for_range(
+            frame_idx,
+            self.foot_xy_tracking_frame_range,
+            ramp_frames=self.foot_xy_tracking_ramp_frames
         )
 
     #! cube：整个函数都是新增的
@@ -1367,6 +1390,41 @@ class InteractionMeshRetargeter:
         # objective
         obj_terms = []
         obj_names = [] # 新增：用于记录各分量名称
+
+        #! foot tracking: 左右脚尖 XY 轴绝对位置跟踪 (软约束)
+        foot_xy_alpha = self._calc_foot_xy_tracking_alpha(frame_idx)
+        if self.activate_foot_xy_tracking and foot_xy_alpha > 0:
+            # 使用已有的操纵器雅可比工具，保持与 dqa 的 qpos 索引体系一致，避免维度错配
+            foot_xy_links = {}
+            for foot_name in ["LeftFootMod", "RightFootMod"]:
+                if foot_name in self.laplacian_match_links:
+                    foot_xy_links[foot_name] = self.laplacian_match_links[foot_name]
+
+            if foot_xy_links:
+                J_dict, p_dict, _ = self._calc_manipulator_jacobians(q, links=foot_xy_links, obj_frame=False)
+                for foot_name in foot_xy_links:
+                    if foot_name not in self.demo_joints:
+                        continue
+                    demo_idx = self.demo_joints.index(foot_name)
+                    target_xy = target_laplacian[demo_idx, :2]
+                    current_pos = p_dict[foot_name]
+                    error_xy = target_xy - current_pos[:2]
+                    J_xy = J_dict[foot_name][:2, self.q_a_indices]
+
+                    # 双重过渡：
+                    # 1) 激活权重通过 foot_xy_alpha 平滑起落
+                    # 2) 仅要求本帧修正 alpha * 原始误差，避免约束突兀切入
+                    tracking_cost = (self.foot_xy_tracking_weight * foot_xy_alpha) * cp.sum_squares(
+                        cp.Constant(foot_xy_alpha * error_xy) - cp.Constant(J_xy) @ dqa
+                    )
+                    obj_terms.append(tracking_cost)
+                    obj_names.append(f"{foot_name}_xy_tracking")
+
+                    if (frame_idx == 0) or (self.debug and frame_idx % 100 == 0):
+                        print(
+                            f"[Foot XY Tracking] {foot_name}: alpha={foot_xy_alpha:.3f}, "
+                            f"error_norm={np.linalg.norm(error_xy):.4f}"
+                        )
 
 
         #! wrist:

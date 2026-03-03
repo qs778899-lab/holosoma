@@ -18,13 +18,19 @@ rm -rf ubisoft-laforge-animation-dataset
 
 cd holosoma/src/holosoma_retargeting/holosoma_retargeting
 
+**注意⚠️** 检查bvh文件，修改left_toe_offset/right_toe_offset
 ```bash
+left_toe_offset = [0.0, -10.0, 15.12],
 conda activate hsretargeting
 python data_utils/extract_global_positions.py \
   --input_dir snooker \
   --output_dir snooker_npy \
   --data_format nokov
+```
 
+```bash
+left_toe_offset = [0.0, -11, 20],
+left_toe_offset = [0.0, -8, 20], ???不一样
 python data_utils/extract_global_positions.py \
   --input_dir climb \
   --output_dir climb_npy \
@@ -246,8 +252,12 @@ python examples/robot_retarget.py \
   --retargeter.foot-leg-boost-weight 150.0 \
   --retargeter.foot-leg-boost-frame-range 50 2000 \
   --retargeter.foot-leg-boost-ramp-frames 50 \
-  --retargeter.leg-self-collision-margin 0.04 \
-  --retargeter.leg-self-collision-detection-threshold 0.12 \
+  --retargeter.leg-self-collision-margin 0.02 \
+  --retargeter.leg-self-collision-detection-threshold 0.08 \
+  --retargeter.activate-foot-xy-tracking True \
+  --retargeter.foot-xy-tracking-weight 30.0 \
+  --retargeter.foot-xy-tracking-frame-range 50 2000 \
+  --retargeter.foot-xy-tracking-ramp-frames 50 \
   --retargeter.activate-snooker-tracking False \
   --retargeter.activate-palm-flat-constraint False \
   --retargeter.activate-right-wrist-yaw-zero-constraint False \

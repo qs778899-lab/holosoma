@@ -63,10 +63,14 @@ def extract_global_positions(bvh_file_path, target_joints=None):
         
         #! foot: Define offsets for Nokov End Sites (Toe) relative to Foot (Ankle)
         # Assuming offset is constant for Nokov skeleton: (0, -10, 15.12)
-        # Note: These values come from snooker2.bvh
-        left_toe_offset = np.array([0.0, -10.0, 15.12]) 
-        right_toe_offset = np.array([0.0, -10.0, 15.12])
-        
+        # from snooker2.bvh
+        # left_toe_offset = np.array([0.0, -10.0, 15.12]) 
+        # right_toe_offset = np.array([0.0, -10.0, 15.12])
+
+        # from climb59.bvh
+        left_toe_offset = np.array([0.0, -11, 20]) 
+        right_toe_offset = np.array([0.0, -11.0, 20])
+
         for joint in target_joints:
             if joint in joint_names:
                 idx = joint_names.index(joint)
