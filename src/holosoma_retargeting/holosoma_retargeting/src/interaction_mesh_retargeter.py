@@ -838,7 +838,24 @@ class InteractionMeshRetargeter:
 
                     obj_pts_demo_list.append(obj_pts_demo)
                     obj_pts_list.append(obj_pts)
-                    human_kpts_handle_list = self.draw_keypoints(human_mapped_joints, name="human_kpts")  # 15 X 3
+                    #! foot tracking: 分开绘制普通参考点（蓝色）和脚尖参考点（橙色）
+                    human_kpts_handle_list = []
+                    regular_indices = []
+                    special_indices = []
+                    for idx, key in enumerate(active_link_keys):
+                        if key in ["LeftFootMod", "RightFootMod"]:
+                            special_indices.append(idx)
+                        else:
+                            regular_indices.append(idx)
+                    
+                    if regular_indices:
+                        human_kpts_handle_list.extend(
+                            self.draw_keypoints(human_mapped_joints[regular_indices], name="human_kpts", rgba=(0, 0, 1, 1))
+                        )
+                    if special_indices:
+                        human_kpts_handle_list.extend(
+                            self.draw_keypoints(human_mapped_joints[special_indices], name="human_kpts_special", rgba=(1, 0.5, 0, 1)) # 橙色
+                        )
                     obj_kpts_demo_handle_list = self.draw_keypoints(
                         obj_pts_demo, name="object_demo_kpts", rgba=(1, 0, 0, 1)
                     )  # 100 X 3
@@ -927,6 +944,7 @@ class InteractionMeshRetargeter:
                     target_lh_quat=target_lh_quat, #! wrist: 传递左手目标全局四元数
                     target_rh_quat=target_rh_quat, #! cube: 传递右手目标全局四元数
                     wrist_tracking_alpha=wrist_tracking_alpha,  #! wrist: 独立的手腕追踪激活因子
+                    human_target_positions=human_mapped_joints, #! foot tracking: 传递人类目标位置 (世界坐标)
                 )
                 if self.debug:
                     #原：可视化实际robot link点的位置计算
@@ -1097,6 +1115,7 @@ class InteractionMeshRetargeter:
         target_lh_quat: np.ndarray | None = None,  #! wrist: 左手目标全局四元数 (wxyz)
         target_rh_quat: np.ndarray | None = None,  #! cube: 右手目标全局四元数 (wxyz)
         wrist_tracking_alpha: float = 0.0,  #! w 独立的手腕追踪激活因子（用于权重计算）
+        human_target_positions: np.ndarray | None = None, #! foot tracking: 新增人类目标位置
     ):
         """The main function to solve a single iteration of the DiffIK problem.
         Args:
@@ -1402,11 +1421,13 @@ class InteractionMeshRetargeter:
 
             if foot_xy_links:
                 J_dict, p_dict, _ = self._calc_manipulator_jacobians(q, links=foot_xy_links, obj_frame=False)
+                active_link_keys = list(active_links.keys())
                 for foot_name in foot_xy_links:
-                    if foot_name not in self.demo_joints:
+                    if foot_name not in active_link_keys or human_target_positions is None:
                         continue
-                    demo_idx = self.demo_joints.index(foot_name)
-                    target_xy = target_laplacian[demo_idx, :2]
+                    # 修正：demo_idx 应该是 foot_name 在 human_target_positions (即映射后的点云) 中的索引
+                    demo_idx = active_link_keys.index(foot_name)
+                    target_xy = human_target_positions[demo_idx, :2]
                     current_pos = p_dict[foot_name]
                     error_xy = target_xy - current_pos[:2]
                     J_xy = J_dict[foot_name][:2, self.q_a_indices]
@@ -1789,6 +1810,7 @@ class InteractionMeshRetargeter:
         target_lh_quat: np.ndarray | None = None,  #! wrist: 左手目标全局四元数
         target_rh_quat: np.ndarray | None = None,  #! cube: 右手目标全局四元数
         wrist_tracking_alpha: float = 0.0,  #! wrist: 独立的手腕追踪激活因子
+        human_target_positions: np.ndarray | None = None, #! foot tracking: 新增人类目标位置
     ):
         """Iterate the solver for multiple iterations."""
         last_cost = np.inf
@@ -1810,6 +1832,7 @@ class InteractionMeshRetargeter:
                 target_lh_quat=target_lh_quat,  #! wrist: 传递左手目标全局四元数
                 target_rh_quat=target_rh_quat,  #! cube: 传递右手目标全局四元数
                 wrist_tracking_alpha=wrist_tracking_alpha,  #! wrist: 传递手腕追踪激活因子
+                human_target_positions=human_target_positions, #! foot tracking: 传递人类目标位置
             )
             if np.isclose(cost, last_cost):
                 break

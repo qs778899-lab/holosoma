@@ -186,6 +186,10 @@ python viser_player.py \
   --qpos_npz snooker_results/snooker17_original.npz
 ```
 
+python viser_player.py \
+  --mjcf_path models/g1/scene_29dof_cue.xml \
+  --qpos_npz snooker_results/snooker17_original.npz
+
 ### 3.6 自定义球桌参数
 
 如需修改球桌尺寸或位置，编辑以下文件：
@@ -237,7 +241,7 @@ cd holosoma/src/holosoma_retargeting/holosoma_retargeting
 conda activate hsretargeting
 python examples/robot_retarget.py \
   --data-path climb_npy \
-  --task-name climb59 \
+  --task-name climb66 \
   --task-type climbing \
   --data-format nokov \
   --save-dir climb_results \
@@ -288,4 +292,4 @@ python examples/robot_retarget.py \
 
 python viser_player.py \
   --mjcf_path demo_data/climb/mocap_climb_seq_8/g1_29dof_w_multi_boxes_scaled_0.74_0.74_0.74.xml \
-  --qpos_npz climb_results/climb59_original.npz
+  --qpos_npz climb_results/climb63_original.npz
