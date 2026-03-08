@@ -1,0 +1,14 @@
+<!--
+  MuJoCo asset definitions for snooker table.
+  This file is included by the scene XML to define material assets.
+  
+  Note: We use box + cylinder primitives instead of mesh to avoid 
+  MuJoCo's automatic mesh centering and axis swapping issues.
+-->
+<mujocoinclude>
+    <!-- Table material - green felt color -->
+    <material name="snooker_table_material" rgba="0 0.4 0.1 1"/>
+    
+    <!-- Leg material - dark brown wood color -->
+    <material name="snooker_leg_material" rgba="0.2 0.1 0 1"/>
+</mujocoinclude>

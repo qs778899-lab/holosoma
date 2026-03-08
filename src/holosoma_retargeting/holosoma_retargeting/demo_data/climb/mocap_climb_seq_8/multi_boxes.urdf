@@ -1,0 +1,39 @@
+<?xml version="1.0"?>
+<robot name="multi_boxes">
+  <link name="world"/>
+  <!-- multi_boxes -->
+  <link name="multi_boxes_link">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="multi_boxes.obj" scale="1.0 1.0 1.0"/>
+      </geometry>
+      <material name="multi_boxes_material">
+        <color rgba="0.3 0.7 0.9 0.5"/>
+      </material>
+    </visual>
+
+    <collision name="multi_boxes">
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="multi_boxes.obj" scale="1.0 1.0 1.0"/>
+      </geometry>
+    </collision>
+
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="100.0"/>
+      <inertia ixx="100.0" ixy="0.0" ixz="0.0" iyy="100.0" iyz="0.0" izz="100.0"/>
+    </inertial>
+  </link>
+
+  <!-- Fixed joint to world -->
+  <!-- IMPORTANT: multi_boxes.obj vertices are in absolute coordinates -->
+  <!-- So we set position to [0, 0, 0] to let OBJ coordinates take effect directly -->
+  <joint name="world_to_multi_boxes" type="fixed">
+    <parent link="world"/>
+    <child link="multi_boxes_link"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+  </joint>
+
+</robot>

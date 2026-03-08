@@ -1,0 +1,74 @@
+<!--
+  MuJoCo geometry definition for snooker table (static object).
+  This file is included in the worldbody section of the scene XML.
+  
+  Using box + cylinder primitives instead of mesh to avoid MuJoCo's 
+  automatic mesh centering and axis swapping issues.
+  
+  Table position scaled for 1.78m human body (will be auto-scaled to G1 1.32m by retargeting)
+  Scale factor: 1.78/1.32 = 1.348
+  
+  Original values (for G1 1.32m, see scene_29dof_cue.xml):
+  - Table center pos: (0, -1.9, 0.62)
+  - Table size (half): (0.7, 0.5, 0.04)
+  - Leg positions (relative): (±0.6, ±0.4, -0.33)
+  - Leg size: radius=0.04, half-height=0.29
+
+  Scaled values (for human 1.78m, used here):
+  - Table center pos: (0, -2.562, 0.836)
+  - Table size (half): (0.944, 0.674, 0.054)
+  - Leg positions (relative): (±0.809, ±0.539, -0.445)
+  - Leg size: radius=0.054, half-height=0.391
+
+  Note: All positions are world coordinates since geoms are directly in worldbody.
+-->
+<mujocoinclude>
+    <!-- Table Top (Green) - centered at (0, -2.562, 0.836) -->
+    <geom name="snooker_table_top" 
+          type="box" 
+          size="0.944 0.674 0.054" 
+          pos="0 -2.562 0.836" 
+          material="snooker_table_material" 
+          contype="1" 
+          conaffinity="1"/>
+    
+    <!-- Leg 1: Front-Right (+X, +Y relative to table center) -->
+    <!-- World pos: (0+0.809, -2.562+0.539, 0.391) -->
+    <geom name="snooker_table_leg1" 
+          type="cylinder" 
+          size="0.054 0.391" 
+          pos="0.809 -2.023 0.391" 
+          material="snooker_leg_material" 
+          contype="1" 
+          conaffinity="1"/>
+    
+    <!-- Leg 2: Back-Right (+X, -Y relative to table center) -->
+    <!-- World pos: (0+0.809, -2.562-0.539, 0.391) -->
+    <geom name="snooker_table_leg2" 
+          type="cylinder" 
+          size="0.054 0.391" 
+          pos="0.809 -3.101 0.391" 
+          material="snooker_leg_material" 
+          contype="1" 
+          conaffinity="1"/>
+    
+    <!-- Leg 3: Front-Left (-X, +Y relative to table center) -->
+    <!-- World pos: (0-0.809, -2.562+0.539, 0.391) -->
+    <geom name="snooker_table_leg3" 
+          type="cylinder" 
+          size="0.054 0.391" 
+          pos="-0.809 -2.023 0.391" 
+          material="snooker_leg_material" 
+          contype="1" 
+          conaffinity="1"/>
+    
+    <!-- Leg 4: Back-Left (-X, -Y relative to table center) -->
+    <!-- World pos: (0-0.809, -2.562-0.539, 0.391) -->
+    <geom name="snooker_table_leg4" 
+          type="cylinder" 
+          size="0.054 0.391" 
+          pos="-0.809 -3.101 0.391" 
+          material="snooker_leg_material" 
+          contype="1" 
+          conaffinity="1"/>
+</mujocoinclude>

@@ -1,0 +1,173 @@
+<?xml version="1.0"?>
+<!--
+  Snooker Table URDF for climbing task retargeting (visualization).
+  
+  Using box + cylinder primitives instead of mesh to match MuJoCo configuration.
+  
+  SCALED for 1.78m human body (will be auto-scaled to G1 1.32m by retargeting).
+  Scale factor: 1.78 / 1.32 = 1.348
+  
+  Scaled (for human 1.78m, used here):
+  - Table center pos: (0, -2.562, 0.836)
+  - Table size (full): 1.888m x 1.348m x 0.108m
+  - Leg positions (relative): (±0.809, ±0.539, -0.445)
+  - Leg size: radius=0.054m, height=0.782m
+-->
+<robot name="snooker_table">
+  <!-- Root world link -->
+  <link name="world"/>
+  
+  <!-- Table top link -->
+  <link name="table_top">
+    <visual>
+      <!-- World position: (0, -2.562, 0.836) -->
+      <origin xyz="0 -2.562 0.836" rpy="0 0 0"/>
+      <geometry>
+        <!-- URDF box uses full size, not half size -->
+        <box size="1.888 1.348 0.108"/>
+      </geometry>
+      <material name="table_material">
+        <color rgba="0 0.4 0.1 1"/>
+      </material>
+    </visual>
+    <collision name="table_top_collision">
+      <origin xyz="0 -2.562 0.836" rpy="0 0 0"/>
+      <geometry>
+        <box size="1.888 1.348 0.108"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <origin xyz="0 -2.562 0.836" rpy="0 0 0"/>
+      <mass value="80.0"/>
+      <inertia ixx="10.0" ixy="0.0" ixz="0.0" iyy="10.0" iyz="0.0" izz="10.0"/>
+    </inertial>
+  </link>
+  
+  <!-- Connect table_top to world - Joint at origin -->
+  <joint name="world_to_table_top" type="fixed">
+    <parent link="world"/>
+    <child link="table_top"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+  </joint>
+  
+  <!-- Leg 1: Front-Right -->
+  <link name="leg1">
+    <visual>
+      <!-- World pos: (0.809, -2.023, 0.391) -->
+      <origin xyz="0.809 -2.023 0.391" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="0.054" length="0.782"/>
+      </geometry>
+      <material name="leg_material">
+        <color rgba="0.2 0.1 0 1"/>
+      </material>
+    </visual>
+    <collision name="leg1_collision">
+      <origin xyz="0.809 -2.023 0.391" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="0.054" length="0.782"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <origin xyz="0.809 -2.023 0.391" rpy="0 0 0"/>
+      <mass value="5.0"/>
+      <inertia ixx="1.0" ixy="0.0" ixz="0.0" iyy="1.0" iyz="0.0" izz="1.0"/>
+    </inertial>
+  </link>
+  <joint name="world_to_leg1" type="fixed">
+    <parent link="world"/>
+    <child link="leg1"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+  </joint>
+  
+  <!-- Leg 2: Back-Right -->
+  <link name="leg2">
+    <visual>
+      <!-- World pos: (0.809, -3.101, 0.391) -->
+      <origin xyz="0.809 -3.101 0.391" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="0.054" length="0.782"/>
+      </geometry>
+      <material name="leg_material">
+        <color rgba="0.2 0.1 0 1"/>
+      </material>
+    </visual>
+    <collision name="leg2_collision">
+      <origin xyz="0.809 -3.101 0.391" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="0.054" length="0.782"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <origin xyz="0.809 -3.101 0.391" rpy="0 0 0"/>
+      <mass value="5.0"/>
+      <inertia ixx="1.0" ixy="0.0" ixz="0.0" iyy="1.0" iyz="0.0" izz="1.0"/>
+    </inertial>
+  </link>
+  <joint name="world_to_leg2" type="fixed">
+    <parent link="world"/>
+    <child link="leg2"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+  </joint>
+  
+  <!-- Leg 3: Front-Left -->
+  <link name="leg3">
+    <visual>
+      <!-- World pos: (-0.809, -2.023, 0.391) -->
+      <origin xyz="-0.809 -2.023 0.391" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="0.054" length="0.782"/>
+      </geometry>
+      <material name="leg_material">
+        <color rgba="0.2 0.1 0 1"/>
+      </material>
+    </visual>
+    <collision name="leg3_collision">
+      <origin xyz="-0.809 -2.023 0.391" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="0.054" length="0.782"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <origin xyz="-0.809 -2.023 0.391" rpy="0 0 0"/>
+      <mass value="5.0"/>
+      <inertia ixx="1.0" ixy="0.0" ixz="0.0" iyy="1.0" iyz="0.0" izz="1.0"/>
+    </inertial>
+  </link>
+  <joint name="world_to_leg3" type="fixed">
+    <parent link="world"/>
+    <child link="leg3"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+  </joint>
+  
+  <!-- Leg 4: Back-Left -->
+  <link name="leg4">
+    <visual>
+      <!-- World pos: (-0.809, -3.101, 0.391) -->
+      <origin xyz="-0.809 -3.101 0.391" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="0.054" length="0.782"/>
+      </geometry>
+      <material name="leg_material">
+        <color rgba="0.2 0.1 0 1"/>
+      </material>
+    </visual>
+    <collision name="leg4_collision">
+      <origin xyz="-0.809 -3.101 0.391" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="0.054" length="0.782"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <origin xyz="-0.809 -3.101 0.391" rpy="0 0 0"/>
+      <mass value="5.0"/>
+      <inertia ixx="1.0" ixy="0.0" ixz="0.0" iyy="1.0" iyz="0.0" izz="1.0"/>
+    </inertial>
+  </link>
+  <joint name="world_to_leg4" type="fixed">
+    <parent link="world"/>
+    <child link="leg4"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+  </joint>
+
+</robot>
