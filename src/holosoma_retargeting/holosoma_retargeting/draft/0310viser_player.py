@@ -77,15 +77,12 @@ def make_player(
         viser_geoms = {}
         for i in range(model.ngeom):
             name = mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_GEOM, i) or f"geom_{i}"
-            
+            if name == "floor":
+                server.scene.add_grid("/grid", width=config.grid_width, height=config.grid_height)
+                continue
+                
             g_type = model.geom_type[i]
-            # Priority: 1. material rgba, 2. geom rgba
-            mat_id = model.geom_matid[i]
-            if mat_id != -1:
-                rgba = model.mat_rgba[mat_id]
-            else:
-                rgba = model.geom_rgba[i]
-            
+            rgba = model.geom_rgba[i]
             size = model.geom_size[i]
             
             if g_type == mujoco.mjtGeom.mjGEOM_BOX:
@@ -107,13 +104,6 @@ def make_player(
                     radius=size[0],
                     color=rgba[:3]
                 )
-            elif g_type == mujoco.mjtGeom.mjGEOM_PLANE:
-                # MuJoCo plane size is [width, height, spacing]
-                viser_geoms[name] = server.scene.add_box(
-                    f"/mjcf/{name}",
-                    dimensions=(size[0] * 2, size[1] * 2, 0.01),
-                    color=rgba[:3]
-                )
             elif g_type == mujoco.mjtGeom.mjGEOM_MESH:
                 # Load mesh from MuJoCo
                 mesh_id = model.geom_dataid[i]
@@ -131,9 +121,6 @@ def make_player(
                     faces=faces,
                     color=rgba[:3]
                 )
-
-        # Add a default grid for reference
-        server.scene.add_grid("/grid", width=config.grid_width, height=config.grid_height)
 
         # Sync loop
         state = {"playing": False, "frame": 0}
