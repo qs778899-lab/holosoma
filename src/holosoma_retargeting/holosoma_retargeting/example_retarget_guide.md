@@ -184,11 +184,17 @@ z=-0.84  ┴──────────────  桌腿底部
 python viser_player.py \
   --mjcf_path models/g1/scene_29dof_cue.xml \
   --qpos_npz snooker_results/snooker17_original.npz
-```
 
 python viser_player.py \
   --mjcf_path models/g1/scene_29dof_cue.xml \
-  --qpos_npz snooker_results/snooker17_original.npz
+  --qpos_npz draft/snooker_results1.0/snooker3_original.npz
+
+python viser_player.py \
+  --mjcf_path models/g1/scene_29dof_cue.xml \
+  --qpos_npz draft/snooker_results0126/snooker3_original.npz
+```
+
+
 
 ### 3.6 自定义球桌参数
 
@@ -293,3 +299,4 @@ python examples/robot_retarget.py \
 python viser_player.py \
   --mjcf_path demo_data/climb/mocap_climb_seq_8/g1_29dof_w_multi_boxes_scaled_0.74_0.74_0.74.xml \
   --qpos_npz climb_results/climb63_original.npz
+

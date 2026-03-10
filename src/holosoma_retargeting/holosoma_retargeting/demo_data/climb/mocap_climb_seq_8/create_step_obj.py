@@ -54,5 +54,8 @@ def generate_staircase_obj(num_steps, start_x=0.14, end_x=1.73, step_width=0.5, 
         
     return "\n".join(output)
 
-# 生成 3 级台阶示例
-print(generate_staircase_obj(3))
+# 生成 4 级台阶示例
+print(generate_staircase_obj(4))
+
+# 40, 15,5
+# 50, 44
