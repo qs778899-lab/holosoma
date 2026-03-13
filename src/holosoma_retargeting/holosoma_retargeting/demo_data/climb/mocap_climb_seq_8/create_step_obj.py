@@ -1,17 +1,22 @@
-def generate_staircase_obj(num_steps, start_x=0.14, end_x=1.73, step_width=0.5, step_height=0.44):
+# python demo_data/climb/mocap_climb_seq_8/create_step_obj.py
+
+def generate_staircase_obj(num_steps, start_x=0.5, end_x=2.1, step_width=0.4, step_height=0.15):
     vertices = []
     faces = []
     
-    current_y = 2.0 # 机器人面向台阶最最近的坐标
-    current_z = 0.0 # 地面高度
+    current_y = -0.47 # 机器人面向台阶最最近的坐标 (-0.17 -0.4 = -0.57)
+    current_z = 0.0   # 地面高度
     
     for i in range(num_steps):
         # 每一级台阶的基础索引偏移
         offset = i * 8
         
         # 按照你的规律定义 8 个顶点
+        
+        # print(f"current_y: {current_y}")
         y_min, y_max = current_y, current_y + step_width
         z_min, z_max = current_z, current_z + step_height
+        current_y -= step_width 
         
         # 顶点坐标 (v)
         v = [
@@ -40,8 +45,7 @@ def generate_staircase_obj(num_steps, start_x=0.14, end_x=1.73, step_width=0.5, 
         for face in f_template:
             faces.append(tuple(idx + offset for idx in face))
             
-        # 楼梯逻辑：下一级台阶在 Y 方向和 Z 方向递增
-        current_y += step_width
+        # 楼梯逻辑：Z 方向递增（Y 方向已在循环开头递减）
         current_z += step_height
 
     # 生成 OBJ 内容

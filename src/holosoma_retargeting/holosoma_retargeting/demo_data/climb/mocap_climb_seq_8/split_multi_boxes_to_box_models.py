@@ -6,7 +6,9 @@
 用法：
   python examples/split_multi_boxes_to_box_models.py demo_data/climb/mocap_sample
 或指定 obj 与输出目录：
-  python examples/split_multi_boxes_to_box_models.py --obj path/to/multi_boxes.obj --out path/to/box_models
+
+  python demo_data/climb/mocap_climb_seq_8/split_multi_boxes_to_box_models.py --obj "demo_data/climb/mocap_climb_seq_8/multi_boxes copy.obj" --out "demo_data/climb/mocap_climb_seq_8/box_models copy"
+
 """
 
 from __future__ import annotations

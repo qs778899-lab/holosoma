@@ -283,6 +283,44 @@ python examples/robot_retarget.py \
   --retargeter.smooth-weight 3.0 
 ```
 
+
+python examples/robot_retarget.py \
+  --data-path climb_npy \
+  --task-name climb59 \
+  --task-type climbing \
+  --data-format nokov \
+  --save-dir climb_results_gmr \
+  --task-config.object-name multi_boxes \
+  --task-config.object-dir demo_data/climb/mocap_climb_seq_8 \
+  --task-config.climbing-ground-range -2 2 \
+  --retargeter.step-size 0.4 \
+  --task-config.surface-weight-threshold 0.005 \
+  --task-config.surface-weight-high 5 \
+  --task-config.surface-weight-low 1 \
+  --retargeter.activate-foot-leg-weight-boost False \
+  --retargeter.foot-leg-boost-weight 150.0 \
+  --retargeter.foot-leg-boost-frame-range 50 2000 \
+  --retargeter.foot-leg-boost-ramp-frames 50 \
+  --retargeter.leg-self-collision-margin 0.02 \
+  --retargeter.leg-self-collision-detection-threshold 0.08 \
+  --retargeter.activate-foot-xy-tracking False \
+  --retargeter.foot-xy-tracking-weight 0.1 \
+  --retargeter.foot-xy-tracking-frame-range 50 2000 \
+  --retargeter.foot-xy-tracking-ramp-frames 50 \
+  --retargeter.activate-snooker-tracking False \
+  --retargeter.activate-palm-flat-constraint False \
+  --retargeter.activate-right-wrist-yaw-zero-constraint False \
+  --retargeter.activate-snooker-laplacian False \
+  --retargeter.activate-realtime-rotation-tracking False \
+  --retargeter.activate-general-nominal-tracking False \
+  --retargeter.foot-sticking-tolerance 0.001 \
+  --retargeter.penetration_tolerance 0.002 \
+  --retargeter.visualize \
+  --retargeter.debug \
+  --retargeter.visualization-interp-mult 1 \
+  --retargeter.smooth-weight 3.0 \
+  --retargeter.collision-detection-threshold 0 
+
   **参数说明：**
   - --task-type robot_only/object_interaction/climbing: 任务模式
   - --task-config.object-name ground/largebox/multi_boxes: 交互对象
@@ -298,5 +336,4 @@ python examples/robot_retarget.py \
 
 python viser_player.py \
   --mjcf_path demo_data/climb/mocap_climb_seq_8/g1_29dof_w_multi_boxes_scaled_0.74_0.74_0.74.xml \
-  --qpos_npz climb_results/climb63_original.npz
-
+  --qpos_npz climb_results/climb62_original.npz
