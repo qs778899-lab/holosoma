@@ -23,7 +23,11 @@ from holosoma_retargeting.src.viser_utils import create_motion_control_sliders  
 '''
 python /home/huangyucheng/桌面/Omniretarget/holosoma/src/holosoma_retargeting/holosoma_retargeting/viser_player.py \
   --mjcf_path /home/huangyucheng/桌面/Omniretarget/holosoma/src/holosoma_retargeting/holosoma_retargeting/models/g1/g1_29dof.xml \
-  --qpos_npz /home/huangyucheng/桌面/Omniretarget/data/stairs_27_original.npz
+  --qpos_npz /home/huangyucheng/桌面/Omniretarget/data/stairs_01_original.npz
+
+python /home/huangyucheng/桌面/Omniretarget/holosoma/src/holosoma_retargeting/holosoma_retargeting/viser_player.py \
+  --mjcf_path /home/huangyucheng/桌面/Omniretarget/holosoma/src/holosoma_retargeting/holosoma_retargeting/models/g1/g1_29dof.xml \
+  --qpos_npz /home/huangyucheng/桌面/Omniretarget/data/stairs_01_augmented.npz
 '''
 
 
