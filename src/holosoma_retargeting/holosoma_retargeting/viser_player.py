@@ -20,6 +20,12 @@ if str(src_root) not in sys.path:
 from holosoma_retargeting.config_types.viser import ViserConfig  # noqa: E402
 from holosoma_retargeting.src.viser_utils import create_motion_control_sliders  # noqa: E402
 
+'''
+python /home/huangyucheng/桌面/Omniretarget/holosoma/src/holosoma_retargeting/holosoma_retargeting/viser_player.py \
+  --mjcf_path /home/huangyucheng/桌面/Omniretarget/holosoma/src/holosoma_retargeting/holosoma_retargeting/models/g1/g1_29dof.xml \
+  --qpos_npz /home/huangyucheng/桌面/Omniretarget/data/stairs_27_original.npz
+'''
+
 
 def load_npz(npz_path: str):
     data = np.load(npz_path, allow_pickle=True)
