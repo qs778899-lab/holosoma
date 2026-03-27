@@ -11,6 +11,11 @@ python /home/huangyucheng/桌面/Omniretarget/holosoma/src/holosoma_retargeting/
     --output /home/huangyucheng/桌面/Omniretarget/data/stairs27_retargeted.npz \
     --xml /home/huangyucheng/桌面/Omniretarget/holosoma/src/holosoma_retargeting/holosoma_retargeting/models/g1/g1_29dof.xml
 
+python /home/huangyucheng/桌面/Omniretarget/holosoma/src/holosoma_retargeting/holosoma_retargeting/omniretargetTOinstinct.py \
+    --input /home/huangyucheng/桌面/Omniretarget/data \
+    --output /home/huangyucheng/桌面/Omniretarget/data_instinct \
+    --xml /home/huangyucheng/桌面/Omniretarget/holosoma/src/holosoma_retargeting/holosoma_retargeting/models/g1/g1_29dof.xml
+    
 说明：
   holosoma 原版 npz 格式 (qpos):
       shape = (T, 7 + DOF)
@@ -158,15 +163,28 @@ def convert_format(input_path: str, output_path: str, xml_path: str):
 
 
 def main():
-    # 获取脚本所在目录，用于设置默认 XML 路径 (假设脚本在 holosoma_retargeting 目录下)
-    script_dir = Path(__file__).parent
+    # 获取项目根目录 (假设脚本在 holosoma/src/holosoma_retargeting/holosoma_retargeting/ 目录下)
+    script_path = Path(__file__).resolve()
+    project_root = script_path.parents[4]
+    
+    script_dir = script_path.parent
     default_xml = script_dir / "models/g1/g1_29dof.xml"
+    
+    default_input = project_root / "data"
+    default_output = project_root / "data_instinct"
 
     parser = argparse.ArgumentParser(
         description="将 holosoma/omniretarget 原版 npz 转换为 instinct 训练所需的 retargeted 格式",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=f"""
 示例:
+  # 批量处理默认文件夹 (data -> data_instinct)
+  python omniretargetTOinstinct.py
+
+  # 指定输入文件夹
+  python omniretargetTOinstinct.py --input ./my_data --output ./my_output
+
+  # 单个文件处理
   python omniretargetTOinstinct.py \\
       --input  ../../../../data/stairs_27_original.npz \\
       --output ../../../../data/stairs27_retargeted.npz
@@ -174,26 +192,67 @@ def main():
 默认 XML 路径: {default_xml}
         """
     )
-    parser.add_argument("--input",  required=True, help="holosoma 原版 npz 文件路径")
-    parser.add_argument("--output", required=True, help="输出 instinct retargeted 格式 npz 文件路径（需以 retargeted.npz 结尾）")
+    parser.add_argument("--input",  default=str(default_input), help=f"输入路径 (可以是单个 npz 文件或文件夹，默认: {default_input})")
+    parser.add_argument("--output", default=str(default_output), help=f"输出路径 (可以是文件路径或文件夹，默认: {default_output})")
     parser.add_argument("--xml",    default=str(default_xml), help=f"MuJoCo XML 模型文件路径 (默认: {default_xml})")
 
     args = parser.parse_args()
 
-    if not os.path.exists(args.input):
-        print(f"错误: 输入文件不存在: {args.input}")
+    input_path = Path(args.input)
+    output_path = Path(args.output)
+    xml_path = Path(args.xml)
+
+    if not xml_path.exists():
+        print(f"错误: XML 模型文件不存在: {xml_path}")
         return
 
-    if not os.path.exists(args.xml):
-        print(f"错误: XML 模型文件不存在: {args.xml}")
-        return
+    if input_path.is_dir():
+        # 批量处理模式
+        print(f"进入批量处理模式...")
+        print(f"输入目录: {input_path}")
+        print(f"输出目录: {output_path}")
+        
+        os.makedirs(output_path, exist_ok=True)
+        files = sorted(list(input_path.glob("*.npz")))
+        
+        # 过滤掉已经是 retargeted 的文件
+        process_files = [f for f in files if not (f.name.endswith("retargeted.npz") or f.name.endswith("retargetted.npz"))]
+        
+        if not process_files:
+            print(f"在 {input_path} 中未找到需要处理的 .npz 文件（已自动跳过以 retargeted.npz 结尾的文件）。")
+            return
 
-    if not (args.output.endswith("retargeted.npz") or args.output.endswith("retargetted.npz")):
-        print("警告: 输出文件名不以 'retargeted.npz' 或 'retargetted.npz' 结尾，")
-        print("      instinct 可能无法正确识别文件类型！")
+        print(f"找到 {len(process_files)} 个待处理文件，准备开始批量转换...\n")
+        for f in process_files:
+            # 统一采用：原文件名(stem) + _retargeted.npz
+            # 这样可以完美区分 original 和 augmented，且符合 instinct 命名要求
+            out_name = f.stem + "_retargeted.npz"
+            
+            target_out = output_path / out_name
+            convert_format(str(f), str(target_out), str(xml_path))
+        
+        print(f"所有文件处理完成！共处理 {len(process_files)} 个文件。")
+    
+    else:
+        # 单文件处理模式
+        if not input_path.exists():
+            print(f"错误: 输入文件不存在: {input_path}")
+            return
+            
+        # 如果 output 是个目录，则在目录下生成对应的文件名
+        final_output = output_path
+        if not str(output_path).endswith(".npz"):
+            os.makedirs(output_path, exist_ok=True)
+            out_name = input_path.stem + "_retargeted.npz"
+            final_output = output_path / out_name
+        else:
+            os.makedirs(output_path.parent, exist_ok=True)
 
-    os.makedirs(Path(args.output).parent, exist_ok=True)
-    convert_format(args.input, args.output, args.xml)
+        if not (str(final_output).endswith("retargeted.npz") or str(final_output).endswith("retargetted.npz")):
+            print("警告: 输出文件名不以 'retargeted.npz' 或 'retargetted.npz' 结尾，")
+            print("      instinct 可能无法正确识别文件类型！")
+
+        convert_format(str(input_path), str(final_output), str(xml_path))
 
 
 if __name__ == "__main__":
