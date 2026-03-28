@@ -57,3 +57,10 @@ class ViserConfig:
 
     max_interp_mult: int = 8
     """Maximum interpolation multiplier."""
+
+    # Debug/printing utilities
+    print_foot_pos: bool = False
+    """Whether to print foot positions periodically during playback (MJCF mode)."""
+
+    print_interval: int = 20
+    """Interval in frames for printing foot positions."""

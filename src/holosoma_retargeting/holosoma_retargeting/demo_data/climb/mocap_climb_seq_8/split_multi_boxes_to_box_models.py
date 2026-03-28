@@ -7,7 +7,7 @@
   python examples/split_multi_boxes_to_box_models.py demo_data/climb/mocap_sample
 或指定 obj 与输出目录：
 
-  python demo_data/climb/mocap_climb_seq_8/split_multi_boxes_to_box_models.py --obj "demo_data/climb/mocap_climb_seq_8/multi_boxes copy.obj" --out "demo_data/climb/mocap_climb_seq_8/box_models copy"
+  python demo_data/climb/mocap_climb_seq_8/split_multi_boxes_to_box_models.py --obj "demo_data/climb/mocap_climb_seq_8/multi_boxes.obj" --out "demo_data/climb/mocap_climb_seq_8/box_models"
 
 """
 

@@ -1,10 +1,10 @@
 # python demo_data/climb/mocap_climb_seq_8/create_step_obj.py
 
-def generate_staircase_obj(num_steps, start_x=0.5, end_x=2.1, step_width=0.4, step_height=0.15):
+def generate_staircase_obj(num_steps, start_x=0.5, end_x=2.1, step_width=0.4, step_height=0.155):
     vertices = []
     faces = []
     
-    current_y = -0.47 # 机器人面向台阶最最近的坐标 (-0.17 -0.4 = -0.57)
+    current_y = -0.63 # 机器人面向台阶最最近的坐标 (-0.21 -0.4 = -0.61) # 机器人面向台阶最最近的坐标 (-0.17 -0.4 = -0.57)
     current_z = 0.0   # 地面高度
     
     for i in range(num_steps):
