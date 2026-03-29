@@ -11,6 +11,13 @@ python /home/huangyucheng/桌面/Omniretarget/omniretargetTOinstinct.py \
     --output /home/huangyucheng/桌面/Omniretarget/data/stairs27_retargeted.npz \
     --xml /home/huangyucheng/桌面/Omniretarget/holosoma/src/holosoma_retargeting/holosoma_retargeting/models/g1/g1_29dof.xml
 
+python /home/huangyucheng/桌面/Omniretarget/omniretargetTOinstinct.py \
+    --input /home/huangyucheng/桌面/Omniretarget/data/stairs_27_original.npz \
+    --output /home/huangyucheng/桌面/Omniretarget/data/stairs27_retargeted.npz \
+    --xml /home/huangyucheng/桌面/Omniretarget/holosoma/src/holosoma_retargeting/holosoma_retargeting/models/g1/g1_29dof.xml \
+    
+    
+
 说明：
   holosoma 原版 npz 格式 (qpos):
       shape = (T, 7 + DOF)
