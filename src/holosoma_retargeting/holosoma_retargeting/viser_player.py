@@ -22,13 +22,13 @@ from holosoma_retargeting.src.viser_utils import create_motion_control_sliders  
 
 '''
 python /home/huangyucheng/桌面/Omniretarget/holosoma/src/holosoma_retargeting/holosoma_retargeting/viser_player.py \
-  --mjcf_path /home/huangyucheng/桌面/Omniretarget/holosoma/src/holosoma_retargeting/holosoma_retargeting/demo_data/climb/mocap_climb_seq_8/g1_29dof_w_multi_boxes.xml \
+  --mjcf_path /home/huangyucheng/桌面/Omniretarget/holosoma/src/holosoma_retargeting/holosoma_retargeting/demo_data/climb/mocap_climb_seq_8/g1_29dof_w_multi_boxes_1.00_1.00_1.00.xml \
   --qpos_npz /home/huangyucheng/桌面/Omniretarget/data/stairs_01_original.npz \
   --print_foot_pos \
   --print_interval 20
 
 python /home/huangyucheng/桌面/Omniretarget/holosoma/src/holosoma_retargeting/holosoma_retargeting/viser_player.py \
-  --mjcf_path /home/huangyucheng/桌面/Omniretarget/holosoma/src/holosoma_retargeting/holosoma_retargeting/demo_data/climb/mocap_climb_seq_8/g1_29dof_w_multi_boxes.xml \
+  --mjcf_path /home/huangyucheng/桌面/Omniretarget/holosoma/src/holosoma_retargeting/holosoma_retargeting/demo_data/climb/mocap_climb_seq_8/g1_29dof_w_multi_boxes_1.00_1.00_1.00.xml \
   --qpos_npz /home/huangyucheng/桌面/Omniretarget/data/
 
 
