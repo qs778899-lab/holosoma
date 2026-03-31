@@ -15,14 +15,14 @@ python /home/huangyucheng/桌面/Omniretarget/holosoma/src/holosoma_retargeting/
     --output /home/huangyucheng/桌面/Omniretarget/data_instinct/stairs_01_original_retargeted.npz \
     --source-xml /home/huangyucheng/桌面/Omniretarget/holosoma/src/holosoma_retargeting/holosoma_retargeting/models/g1/g1_29dof.xml \
     --target-urdf /home/huangyucheng/桌面/Omniretarget/holosoma/src/holosoma_retargeting/holosoma_retargeting/models/g1/g1_29dof_torsobase_popsicle.urdf \
-    --terrain-scale 1
+    --terrain-scale 0.7415730337078652
 
 python /home/huangyucheng/桌面/Omniretarget/holosoma/src/holosoma_retargeting/holosoma_retargeting/omniretargetTOinstinct.py \
     --input /home/huangyucheng/桌面/Omniretarget/data \
     --output /home/huangyucheng/桌面/Omniretarget/data_instinct \
     --source-xml /home/huangyucheng/桌面/Omniretarget/holosoma/src/holosoma_retargeting/holosoma_retargeting/models/g1/g1_29dof.xml \
     --target-urdf /home/huangyucheng/桌面/Omniretarget/holosoma/src/holosoma_retargeting/holosoma_retargeting/models/g1/g1_29dof_torsobase_popsicle.urdf \
-    --terrain-scale 1
+    --terrain-scale 0.7415730337078652
     
 说明：
   holosoma 原版 npz 格式 (qpos):
