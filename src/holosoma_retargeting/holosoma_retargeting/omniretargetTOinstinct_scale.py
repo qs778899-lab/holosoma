@@ -42,18 +42,19 @@ python /home/huangyucheng/桌面/Omniretarget/holosoma/src/holosoma_retargeting/
       2) target_urdf: 与 instinct 训练/可视化实际使用的机器人一致
      这样可以按真实 target 模型反解 root 位姿，避免整体 z 高度偏差。
 
-  地形缩放校正 (--terrain-scale):
-      holosoma 在 retarget 时对地形 mesh 进行了统一缩放（见 box_assets.xml 中的 scale）。
-      该缩放导致台阶高度比 instinct 中使用的 STL 地形矮。
-      例如 scale=0.7416 时，台阶第 4 级在 holosoma 中为 0.460m，在 instinct 中为 0.620m，
-      差距达 0.16m，造成可视化时机器人脚部陷入台阶。
-      校正公式（逐帧）:
-          terrain_z ≈ min(left_foot_z, right_foot_z)   # 用支撑脚 Z 近似地形高度
-          new_z = terrain_z * (1/terrain_scale - 1) + z
-      即：只把 "地形高度贡献" 从缩放空间还原到原始空间，机器人相对地形的高度不变。
-      使用逐帧足底位置比固定 h_standing 更准确，能正确处理蹲下、过渡等非站立姿态。
+  地形缩放校正 (--terrain-scale) 计算流程是:
+        1. 当 terrain_scale != 1 才启用校正（/home/huangyucheng/桌面/Omniretarget/holosoma/src/holosoma_retargeting/holosoma_retargeting/omniretargetTOinstinct_scale.py:340）。
+        2. 每一帧用 source XML 做 FK，取左右脚踝 link 的世界坐标 z（left_ankle_roll_link / right_ankle_roll_link），并取 foot_z = min(l_foot_z, r_foot_z) 作为该帧“地形高度近似”（/home/huangyucheng/桌面/Omniretarget/holosoma/src/holosoma_retargeting/holosoma_retargeting/omniretargetTOinstinct_scale.py:345, /home/huangyucheng/桌面/Omniretarget/holosoma/src/holosoma_retargeting/
+            holosoma_retargeting/omniretargetTOinstinct_scale.py:354）。
+        3. 设原 root 高度为 raw_z = base_pos_w[:,2]，认为机器人“离地高度”
+            height_above_terrain = raw_z - foot_z 不应因地形缩放改变（/home/huangyucheng/桌面/Omniretarget/holosoma/src/holosoma_retargeting/holosoma_retargeting/omniretargetTOinstinct_scale.py:358）。
+        4. 把地形高度从“缩放后”还原到“目标尺度”：terrain_z_target = foot_z / terrain_scale。
+        5. 得到校正后 root 高度：
+            corrected_z = terrain_z_target + height_above_terrain
+            展开就是代码公式：
+            corrected_z = foot_z * (1/terrain_scale - 1) + raw_z（/home/huangyucheng/桌面/Omniretarget/holosoma/src/holosoma_retargeting/holosoma_retargeting/omniretargetTOinstinct_scale.py:360, /home/huangyucheng/桌面/Omniretarget/holosoma/src/holosoma_retargeting/holosoma_retargeting/omniretargetTOinstinct_scale.py:362）。
 
-  instinct 项目会自己做前向运动学和速度估计，不需要我们提供 body_pos_w 等字段。
+
   文件名必须以 "retargetted.npz" 或 "retargeted.npz" 结尾，
   instinct 才会走 _read_retargetted_motion_file 这个读取路径。
 '''
