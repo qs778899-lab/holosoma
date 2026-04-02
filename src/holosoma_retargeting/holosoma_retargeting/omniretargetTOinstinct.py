@@ -14,9 +14,27 @@ from scipy.spatial.transform import Rotation
 python /home/huangyucheng/桌面/Omniretarget/holosoma/src/holosoma_retargeting/holosoma_retargeting/omniretargetTOinstinct.py \
     --input /home/huangyucheng/桌面/Omniretarget/data/stairs_01_augmented_interp.npz \
     --output /home/huangyucheng/桌面/Omniretarget/data_instinct/stairs_01_augmented_interp_retargeted.npz 
-
+python /home/huangyucheng/桌面/Omniretarget/holosoma/src/holosoma_retargeting/holosoma_retargeting/omniretargetTOinstinct.py \
+    --input /home/huangyucheng/桌面/Omniretarget/data/stairs146_augmented_interp.npz \
+    --output /home/huangyucheng/桌面/Omniretarget/data_instinct/stairs146_augmented_interp_retargeted.npz 
 
 '''
+
+'''
+格式转换原理的关键点解释：
+
+1. omniretarget原始npz的qpos(需要ominretarget使用的机器人模型文件:g1_29dof.xml):
+pelvis_pos(3), pelvis_quat_wxyz(4), source_joints
+
+2. instinct目标npz的核心(需要instinct训练使用的机器人模型文件:g1_29dof_torsobase_popsicle.urdf):
+torso_pos(3), torso_quat_wxyz(4), target_joints
+
+3. 对 waist 三个关节做符号翻转:
+source 模型是 pelvis-root 语义；target 模型是 torsobase 语义。两边 pelvis 和 torso 之间那条 waist 链的父子方向反了(且多个旋转矩阵乘法的位置不可随意交换)。 
+因此转换后输出到 Instinct joint_pos 里的这三个腰部关节角(waist_yaw_joint, waist_roll_joint, waist_pitch_joint)数值本身都需要乘-1。
+
+'''
+
 
 
 @contextlib.contextmanager

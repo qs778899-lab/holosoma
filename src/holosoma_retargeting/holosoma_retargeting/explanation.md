@@ -215,6 +215,9 @@ $$ \text{s.t. } A \Delta q \le b $$
     | **left/right_rubber_hand** | 橡胶手 | 机器人的末端手部 (无手指版本) |
     | **left/right_toe_link** |  脚尖连杆
 
+注: waist没有pitch link，但有pitch joint (腰部一共三个关节)
+
+一般来说：pelvis(靠近下半身) <-> waist_yaw_link <-> waist_roll_link <-> torso_link (靠近上半身)
 
 4. 硬约束和软约束：
 
